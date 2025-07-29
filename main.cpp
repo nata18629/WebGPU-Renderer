@@ -4,8 +4,14 @@
 #include <cassert>
 #include <GLFW/glfw3.h>
 #include <glfw3webgpu.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+#include <filesystem>
 
 using namespace wgpu;
+namespace fs = std::filesystem;
+
+auto RESOURCE_DIR = fs::path{"textures"};
 
 class App{
 public:
@@ -23,10 +29,22 @@ private:
     Queue queue;
     RenderPipeline pipeline;
     TextureFormat surfaceFormat = TextureFormat::Undefined;
-
+    Texture texture;
+    TextureView texView;
+    BindGroup bindGroup;
+    BindGroupLayout bindGroupLayout;
+    PipelineLayout pipelineLayout;
+    Buffer vertexBuffer;
+    uint32_t vertexCount;
+    std::vector<float> vertexData;
+    
+    RequiredLimits GetRequiredLimits(Adapter adapter) const;
+    void InitializeBuffers();
     void InitializePipeline();
     std::pair<SurfaceTexture, TextureView> GetNextSurfaceViewData();
     void InitializeTexture();
+    void InitializeBinding();
+    
 };
 
 auto onDeviceError = [](WGPUErrorType type, char const* message, void* /* pUserData */) {
@@ -34,9 +52,53 @@ auto onDeviceError = [](WGPUErrorType type, char const* message, void* /* pUserD
         if (message) std::cout << " (" << message << ")";
         std::cout << std::endl;
 };
+Texture LoadTexture(const fs::path& path, Device device, TextureView* pTextureView){
+    // create texture
+    
+    int width, height, channels;
+    unsigned char *data = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
+    if (data==nullptr) return nullptr;
+    TextureDescriptor textureDesc;
+    textureDesc.dimension = TextureDimension::_2D;
+    textureDesc.format = TextureFormat::RGBA8Unorm; // by convention for bmp, png and jpg file. Be careful with other formats.
+    textureDesc.mipLevelCount = 1;
+    textureDesc.sampleCount = 1;
+    textureDesc.size = { (unsigned int)width, (unsigned int)height, 1 };
+    textureDesc.usage = TextureUsage::TextureBinding | TextureUsage::CopyDst;
+    textureDesc.viewFormatCount = 0;
+    textureDesc.viewFormats = nullptr;
+    Texture texture = device.createTexture(textureDesc);
+    // load texture to gpu
+    ImageCopyTexture destination;
+    destination.texture = texture;
+    destination.mipLevel = 0;
+    destination.origin = { 0, 0, 0 }; // equivalent of the offset argument of Queue::writeBuffer
+    destination.aspect = TextureAspect::All; // only relevant for depth/Stencil textures
+    TextureDataLayout source;
+    source.offset = 0;
+    source.bytesPerRow = 4 *textureDesc.size.width;
+    source.rowsPerImage = textureDesc.size.height;
+    Queue queue = device.getQueue();
+    queue.writeTexture(destination, data, 4 * textureDesc.size.width * textureDesc.size.height, source, textureDesc.size);
+    queue.release();
+
+    TextureViewDescriptor textureViewDesc;
+    textureViewDesc.aspect = TextureAspect::All;
+    textureViewDesc.baseArrayLayer = 0;
+    textureViewDesc.arrayLayerCount = 1;
+    textureViewDesc.baseMipLevel = 0;
+    textureViewDesc.mipLevelCount = textureDesc.mipLevelCount;
+    textureViewDesc.dimension = TextureViewDimension::_2D;
+    textureViewDesc.format = textureDesc.format;
+    *pTextureView = texture.createView(textureViewDesc);
+
+    stbi_image_free(data);
+    return texture;
+}
 
 bool App::Initialize() {
     // instance
+    std::cout <<"start init"<<std::endl;
     InstanceDescriptor desc = {};
     desc.nextInChain = nullptr;
     instance = createInstance(desc);
@@ -47,11 +109,10 @@ bool App::Initialize() {
     // adapter
     RequestAdapterOptions options = {};
     Adapter adapter = instance.requestAdapter(options);
-    // AdapterProperties properties = {};
-    // properties.nextInChain = nullptr;
-    // AdapterGetProperties(adapter, &properties);
     // device
     DeviceDescriptor devDesc = {};
+    RequiredLimits requiredLimits = GetRequiredLimits(adapter);
+    devDesc.requiredLimits = &requiredLimits;
     devDesc.deviceLostCallback = [](WGPUDeviceLostReason reason, char const* message, void* /* pUserData */) {
     std::cout << "Device lost: reason " << reason;
     if (message) std::cout << " (" << message << ")";
@@ -87,12 +148,21 @@ bool App::Initialize() {
     surface.configure(config);
     // queue
     queue = device.getQueue();
+    std::cout <<"before init tex"<<std::endl;
+    InitializeTexture();
+    InitializeBinding();
+    InitializeBuffers();
     InitializePipeline();
     adapter.release();
+
     return true;
 }
 void App::Terminate(){
+    vertexBuffer.release();
+    bindGroup.release();
+    bindGroupLayout.release();
     pipeline.release();
+    pipelineLayout.release();
     instance.release();
     glfwDestroyWindow(window);
     glfwTerminate();
@@ -100,6 +170,9 @@ void App::Terminate(){
     surface.release();
     device.release();
     queue.release();
+    texture.destroy();
+    texture.release();
+    texView.release();
 }
 void App::MainLoop(){
     glfwPollEvents();
@@ -127,15 +200,15 @@ void App::MainLoop(){
     // render pass
     RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
     renderPass.setPipeline(pipeline);
-    renderPass.draw(3, 1, 0, 0);
+    renderPass.setBindGroup(0, bindGroup, 0, nullptr);
+    renderPass.setVertexBuffer(0, vertexBuffer, 0, vertexBuffer.getSize());
+    renderPass.draw(vertexCount, 1, 0, 0);
     renderPass.end();
     CommandBufferDescriptor cmdBufferDescriptor = {};
     cmdBufferDescriptor.nextInChain = nullptr;
     cmdBufferDescriptor.label = "Command buffer";
     CommandBuffer command = encoder.finish(cmdBufferDescriptor);
-    // std::cout << "Submitting command..." << std::endl;
     queue.submit(1, &command);
-    // std::cout << "Command submitted." << std::endl;
 
     renderPass.release();
     surface.present();
@@ -143,11 +216,25 @@ void App::MainLoop(){
     wgpuTextureRelease(surfaceTexture.texture);
     command.release();
     encoder.release();
-    instance.processEvents();
+    //instance.processEvents();
 }
 bool App::IsRunning(){
     return !glfwWindowShouldClose(window);
 } 
+
+RequiredLimits App::GetRequiredLimits(Adapter adapter) const {
+    SupportedLimits supportedLimits;
+    adapter.getLimits(&supportedLimits);
+    RequiredLimits requiredLimits = Default;
+    requiredLimits.limits.maxVertexAttributes = 1;
+    requiredLimits.limits.maxVertexBuffers = 1;
+    requiredLimits.limits.maxBufferSize = 6 * 2 * sizeof(float);
+    requiredLimits.limits.maxVertexBufferArrayStride = 2 * sizeof(float);
+    requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
+    requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
+    
+    return requiredLimits;
+}
 std::pair<SurfaceTexture, TextureView> App::GetNextSurfaceViewData() {
     // next texture
     SurfaceTexture surfaceTexture;
@@ -171,21 +258,29 @@ std::pair<SurfaceTexture, TextureView> App::GetNextSurfaceViewData() {
 }
 void App::InitializePipeline(){
     const char* shaderSource = R"(
+    struct VertexInput {
+        @location(0) position: vec2f,
+        @location(1) coord: vec2f,
+    };
+
+    struct VertexOutput {
+        @builtin(position) position: vec4f,
+        @location(0) uv: vec2f,
+    };
+
     @vertex
-    fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4f {
-        var p = vec2f(0.0, 0.0);
-        if (in_vertex_index == 0u) {
-            p = vec2f(-0.7, -0.8);
-        } else if (in_vertex_index == 1u) {
-            p = vec2f(0.4, -0.75);
-        } else {
-            p = vec2f(0.3, 0.9);
-        }
-        return vec4f(p, 0.0, 1.0);
+    fn vs_main(@location(0) vertex_pos: vec2f) -> VertexOutput {
+        //let coords = (vertex_pos+1.0)*100.0;
+        let pos = vec4f(vertex_pos, 0.0, 1.0);
+        let uv = vertex_pos.xy*0.5+0.5;
+        return VertexOutput(pos, uv);
     }
+    @group(0) @binding(0) var imageTexture: texture_2d<f32>;
     @fragment
-    fn fs_main() -> @location(0) vec4f {
-        return vec4f(0.3, 0.2, 0.8, 1.0);
+    fn fs_main(in: VertexOutput) -> @location(0) vec4f {
+    let texelCoords = vec2i(in.uv * vec2f(textureDimensions(imageTexture)));
+    let color = textureLoad(imageTexture, texelCoords, 0).rgb;
+    return vec4f(color,1.0);
     }
     )";
     // create shader module
@@ -197,11 +292,22 @@ void App::InitializePipeline(){
     shaderDesc.nextInChain = &shaderCodeDesc.chain;
     ShaderModule shaderModule = device.createShaderModule(shaderDesc);
 
+    // vertex buffer layout
+    VertexBufferLayout vertexBufferLayout;
+    VertexAttribute positionAttrib;
+    positionAttrib.shaderLocation = 0;
+    positionAttrib.offset = 0;
+    positionAttrib.format = VertexFormat::Float32x2;
+    vertexBufferLayout.attributeCount = 1;
+    vertexBufferLayout.attributes = &positionAttrib;
+    vertexBufferLayout.arrayStride = 2 * sizeof(float);
+    vertexBufferLayout.stepMode = VertexStepMode::Vertex;
+
     // pipeline
     RenderPipelineDescriptor pipelineDesc;
     pipelineDesc.label = "Pipeline";
-    pipelineDesc.vertex.bufferCount = 0;
-    pipelineDesc.vertex.buffers = nullptr;
+    pipelineDesc.vertex.bufferCount = 1;
+    pipelineDesc.vertex.buffers = &vertexBufferLayout;
     // vertex shader
     pipelineDesc.vertex.module = shaderModule;
     pipelineDesc.vertex.entryPoint = "vs_main";
@@ -238,14 +344,67 @@ void App::InitializePipeline(){
     pipelineDesc.multisample.mask = ~0u;
     pipelineDesc.multisample.alphaToCoverageEnabled = false;
 
-    pipelineDesc.layout = nullptr;
+    PipelineLayoutDescriptor layoutDesc{};
+    layoutDesc.bindGroupLayoutCount = 1;
+    layoutDesc.bindGroupLayouts = (WGPUBindGroupLayout*)&bindGroupLayout;
+    pipelineLayout = device.createPipelineLayout(layoutDesc);
+    pipelineDesc.layout = pipelineLayout;
 
     pipeline = device.createRenderPipeline(pipelineDesc);
     shaderModule.release();
 }
-void App::InitializeTexture(){
+void App::InitializeBuffers(){
+    vertexData = {
+        -0.8, +0.7,
+        -0.4, +0.7,
+        -0.4, -0.5,
 
+        -0.8, +0.7,
+        -0.8, -0.5,
+        -0.4, -0.5
+    };
+
+    vertexCount = static_cast<uint32_t>(vertexData.size() / 2);
+
+    BufferDescriptor bufferDesc;
+    bufferDesc.label = "vertex data";
+    bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Vertex;
+    bufferDesc.size = vertexData.size() * sizeof(float);
+    bufferDesc.mappedAtCreation = false;
+    vertexBuffer = device.createBuffer(bufferDesc);
+    queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
 }
+void App::InitializeTexture(){
+    texView = nullptr;
+    texture = LoadTexture(RESOURCE_DIR/"obszar.jpg", device, &texView);
+}
+void App::InitializeBinding(){
+    BindGroupLayoutEntry textureBindingLayout = Default;
+    // The texture binding
+    textureBindingLayout.binding = 0;
+    textureBindingLayout.visibility = ShaderStage::Fragment;
+    textureBindingLayout.texture.sampleType = TextureSampleType::UnfilterableFloat;
+    textureBindingLayout.texture.viewDimension = TextureViewDimension::_2D;
+    textureBindingLayout.texture.multisampled = 0;
+
+    // Create a bind group layout
+    BindGroupLayoutDescriptor bindGroupLayoutDesc{};
+    bindGroupLayoutDesc.entryCount = 1;
+    bindGroupLayoutDesc.entries = &textureBindingLayout;
+    bindGroupLayout = device.createBindGroupLayout(bindGroupLayoutDesc);
+    // Create a binding
+    BindGroupEntry binding;
+
+    binding.binding = 0;
+    binding.textureView = texView;
+
+    BindGroupDescriptor bindGroupDesc;
+    bindGroupDesc.layout = bindGroupLayout;
+    bindGroupDesc.entryCount = 1;
+    bindGroupDesc.entries = &binding;
+    bindGroup = device.createBindGroup(bindGroupDesc);
+}
+
 
 int main (int, char**) {
     App app;

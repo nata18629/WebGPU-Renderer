@@ -9,6 +9,7 @@ add_executable(App main.cpp)
 add_subdirectory(glfw)
 add_subdirectory(glfw3webgpu)
 add_subdirectory(webgpu)
+target_include_directories(App PRIVATE stb_image/)
 target_link_libraries(App PRIVATE glfw webgpu glfw3webgpu)
 set_target_properties(App PROPERTIES
     CXX_STANDARD 17
