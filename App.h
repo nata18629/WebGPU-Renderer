@@ -1,0 +1,38 @@
+#include <webgpu/webgpu.hpp>
+#include <GLFW/glfw3.h>
+
+using namespace wgpu;
+
+class App{
+public:
+    bool Initialize();
+    void Terminate();
+    void MainLoop();
+    bool IsRunning();
+
+private:
+    Instance instance;
+    Device device;
+    GLFWwindow* window;
+    Surface surface;
+    SurfaceConfiguration config;
+    Queue queue;
+    RenderPipeline pipeline;
+    TextureFormat surfaceFormat = TextureFormat::Undefined;
+    Texture texture;
+    TextureView texView;
+    BindGroup bindGroup;
+    BindGroupLayout bindGroupLayout;
+    PipelineLayout pipelineLayout;
+    Buffer vertexBuffer;
+    uint32_t vertexCount;
+    std::vector<float> vertexData;
+    
+    RequiredLimits GetRequiredLimits(Adapter adapter) const;
+    void InitializeBuffers();
+    void InitializePipeline();
+    std::pair<SurfaceTexture, TextureView> GetNextSurfaceViewData();
+    void InitializeTexture();
+    void InitializeBinding();
+    
+};
