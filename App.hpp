@@ -25,6 +25,7 @@ private:
     BindGroupLayout bindGroupLayout;
     PipelineLayout pipelineLayout;
     Buffer vertexBuffer;
+    Buffer uniformBuffer;
     uint32_t vertexCount;
     std::vector<float> vertexData;
     

@@ -7,7 +7,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <filesystem>
-#include "App.h"
+#include "App.hpp"
 
 using namespace wgpu;
 namespace fs = std::filesystem;
@@ -63,8 +63,6 @@ Texture LoadTexture(const fs::path& path, Device device, TextureView* pTextureVi
     return texture;
 }
 
-
-
 bool App::Initialize() {
     // instance
     std::cout <<"start init"<<std::endl;
@@ -118,14 +116,15 @@ bool App::Initialize() {
     // queue
     queue = device.getQueue();
     InitializeTexture();
-    InitializeBinding();
     InitializeBuffers();
+    InitializeBinding();
     InitializePipeline();
     adapter.release();
 
     return true;
 }
 void App::Terminate(){
+    uniformBuffer.release();
     vertexBuffer.release();
     bindGroup.release();
     bindGroupLayout.release();
@@ -144,6 +143,8 @@ void App::Terminate(){
 }
 void App::MainLoop(){
     glfwPollEvents();
+    float t = static_cast<float>(glfwGetTime()); // glfwGetTime returns a double
+    queue.writeBuffer(uniformBuffer, 0, &t, sizeof(float));
     auto [ surfaceTexture, targetView ] = GetNextSurfaceViewData();
     if (!targetView) return;
     RenderPassDescriptor renderPassDesc = {};
@@ -195,8 +196,8 @@ RequiredLimits App::GetRequiredLimits(Adapter adapter) const {
     RequiredLimits requiredLimits = Default;
     requiredLimits.limits.maxVertexAttributes = 1;
     requiredLimits.limits.maxVertexBuffers = 1;
-    requiredLimits.limits.maxBufferSize = 6 * 2 * sizeof(float);
-    requiredLimits.limits.maxVertexBufferArrayStride = 2 * sizeof(float);
+    requiredLimits.limits.maxBufferSize = 6 * 3 * sizeof(float);
+    requiredLimits.limits.maxVertexBufferArrayStride = 3 * sizeof(float);
     requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
     requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
     
@@ -232,21 +233,30 @@ void App::InitializePipeline(){
 
     struct VertexOutput {
         @builtin(position) position: vec4f,
-        @location(0) uv: vec2f,
+        @location(0) uv: vec3f,
     };
 
+    @group(0) @binding(0) var imageTexture: texture_2d<f32>;
+    @group(0) @binding(1) var<uniform> uTime: f32;
+
     @vertex
-    fn vs_main(@location(0) vertex_pos: vec2f) -> VertexOutput {
+    fn vs_main(@location(0) vertex_pos: vec3f) -> VertexOutput {
         //let coords = (vertex_pos+1.0)*100.0;
-        let pos = vec4f(vertex_pos, 0.0, 1.0);
-        let uv = vertex_pos.xy*0.5+0.5;
+        let ratio = 640.0 / 480.0;
+        var offset = vec2f(-0.6875, -0.463);
+        offset += 0.3 * vec2f(cos(uTime), sin(uTime));
+
+        let pos = vec4f(vertex_pos.x+offset.x, (vertex_pos.y+offset.y)*ratio, vertex_pos.z, 1.0);
+        //let uv = -vertex_pos*0.6+vec3f(0.9,0.8,0.0);
+        let uv = -vertex_pos*0.8+vec3f(1.0,0.9,0.0);
+
         return VertexOutput(pos, uv);
     }
-    @group(0) @binding(0) var imageTexture: texture_2d<f32>;
+    
     @fragment
     fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-    let texelCoords = vec2i(in.uv * vec2f(textureDimensions(imageTexture)));
-    let color = textureLoad(imageTexture, texelCoords, 0).rgb;
+        let texelCoords = vec2i(in.uv.xy * vec2f(textureDimensions(imageTexture)));
+        let color = textureLoad(imageTexture, texelCoords, 0).rgb;
     return vec4f(color,1.0);
     }
     )";
@@ -264,10 +274,10 @@ void App::InitializePipeline(){
     VertexAttribute positionAttrib;
     positionAttrib.shaderLocation = 0;
     positionAttrib.offset = 0;
-    positionAttrib.format = VertexFormat::Float32x2;
+    positionAttrib.format = VertexFormat::Float32x3;
     vertexBufferLayout.attributeCount = 1;
     vertexBufferLayout.attributes = &positionAttrib;
-    vertexBufferLayout.arrayStride = 2 * sizeof(float);
+    vertexBufferLayout.arrayStride = 3 * sizeof(float);
     vertexBufferLayout.stepMode = VertexStepMode::Vertex;
 
     // pipeline
@@ -322,16 +332,16 @@ void App::InitializePipeline(){
 }
 void App::InitializeBuffers(){
     vertexData = {
-        -0.8, +0.7,
-        -0.4, +0.7,
-        -0.4, -0.5,
+        +0.8, +0.7, +0.0,
+        +0.4, +0.7, +0.0,
+        +0.4, +0.3, +0.0,
 
-        -0.8, +0.7,
-        -0.8, -0.5,
-        -0.4, -0.5
+        +0.8, +0.7, +0.0,
+        +0.8, +0.3, +0.0,
+        +0.4, +0.3, +0.0
     };
 
-    vertexCount = static_cast<uint32_t>(vertexData.size() / 2);
+    vertexCount = static_cast<uint32_t>(vertexData.size() / 3);
 
     BufferDescriptor bufferDesc;
     bufferDesc.label = "vertex data";
@@ -340,34 +350,54 @@ void App::InitializeBuffers(){
     bufferDesc.mappedAtCreation = false;
     vertexBuffer = device.createBuffer(bufferDesc);
     queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
+
+    bufferDesc.label = "time data";
+    bufferDesc.size = 4 * sizeof(float);
+    bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
+    bufferDesc.mappedAtCreation = false;
+    uniformBuffer = device.createBuffer(bufferDesc);
+    float currentTime = 1.0f;
+    queue.writeBuffer(uniformBuffer, 0, &currentTime, sizeof(float));
+
 }
 void App::InitializeTexture(){
     texView = nullptr;
     texture = LoadTexture(RESOURCE_DIR/"obszar.jpg", device, &texView);
 }
 void App::InitializeBinding(){
-    BindGroupLayoutEntry textureBindingLayout = Default;
+    std::vector<BindGroupLayoutEntry> bindingLayoutEntries(2, Default);
     // The texture binding
+    BindGroupLayoutEntry& textureBindingLayout = bindingLayoutEntries[0];
     textureBindingLayout.binding = 0;
     textureBindingLayout.visibility = ShaderStage::Fragment;
-    textureBindingLayout.texture.sampleType = TextureSampleType::UnfilterableFloat;
+    textureBindingLayout.texture.sampleType = TextureSampleType::Float;
     textureBindingLayout.texture.viewDimension = TextureViewDimension::_2D;
     textureBindingLayout.texture.multisampled = 0;
-
+    // The uniform time binding
+    BindGroupLayoutEntry& uniformBindingLayout = bindingLayoutEntries[1];
+    uniformBindingLayout.binding = 1;
+    uniformBindingLayout.visibility = ShaderStage::Vertex;
+    uniformBindingLayout.buffer.type = BufferBindingType::Uniform;
+    uniformBindingLayout.buffer.minBindingSize = 4 * sizeof(float);
     // Create a bind group layout
     BindGroupLayoutDescriptor bindGroupLayoutDesc{};
-    bindGroupLayoutDesc.entryCount = 1;
-    bindGroupLayoutDesc.entries = &textureBindingLayout;
+    bindGroupLayoutDesc.entryCount = 2;
+    bindGroupLayoutDesc.entries = bindingLayoutEntries.data();
     bindGroupLayout = device.createBindGroupLayout(bindGroupLayoutDesc);
     // Create a binding
-    BindGroupEntry binding;
+    std::vector<BindGroupEntry> bindings(2);
 
-    binding.binding = 0;
-    binding.textureView = texView;
+    bindings[0].binding = 0;
+    bindings[0].textureView = texView;
+
+    bindings[1].binding = 1;
+    bindings[1].buffer = uniformBuffer;
+    bindings[1].offset = 0;
+    bindings[1].size = 4*sizeof(float);
 
     BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout = bindGroupLayout;
-    bindGroupDesc.entryCount = 1;
-    bindGroupDesc.entries = &binding;
+    bindGroupDesc.entryCount = 2;
+    bindGroupDesc.entries = bindings.data();
     bindGroup = device.createBindGroup(bindGroupDesc);
 }
