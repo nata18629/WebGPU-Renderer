@@ -1,5 +1,5 @@
-#include <webgpu/webgpu.hpp>
 #include <GLFW/glfw3.h>
+#include <webgpu/webgpu.hpp>
 
 using namespace wgpu;
 
