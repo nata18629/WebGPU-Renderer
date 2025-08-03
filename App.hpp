@@ -28,6 +28,8 @@ private:
     Buffer uniformBuffer;
     uint32_t vertexCount;
     std::vector<float> vertexData;
+    TextureView depthTextureView;
+    Texture depthTexture;
     
     RequiredLimits GetRequiredLimits(Adapter adapter) const;
     void InitializeBuffers();

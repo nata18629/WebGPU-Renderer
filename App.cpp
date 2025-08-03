@@ -124,6 +124,9 @@ bool App::Initialize() {
     return true;
 }
 void App::Terminate(){
+    depthTextureView.release();
+    depthTexture.destroy();
+    depthTexture.release();
     uniformBuffer.release();
     vertexBuffer.release();
     bindGroup.release();
@@ -150,6 +153,7 @@ void App::MainLoop(){
     RenderPassDescriptor renderPassDesc = {};
     renderPassDesc.nextInChain = nullptr;
     // describe render pass
+    // color attachment
     RenderPassColorAttachment renderPassColorAttachment = {};
     renderPassColorAttachment.view = targetView;
     renderPassColorAttachment.resolveTarget = nullptr;
@@ -159,7 +163,18 @@ void App::MainLoop(){
     renderPassColorAttachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
     renderPassDesc.colorAttachmentCount = 1;
     renderPassDesc.colorAttachments = &renderPassColorAttachment;
-    renderPassDesc.depthStencilAttachment = nullptr;
+    // depth stencil
+    RenderPassDepthStencilAttachment depthStencilAttachment;
+    depthStencilAttachment.view = depthTextureView;
+    depthStencilAttachment.depthClearValue = 1.0f;
+    depthStencilAttachment.depthLoadOp = LoadOp::Clear;
+    depthStencilAttachment.depthStoreOp = StoreOp::Store;
+    depthStencilAttachment.depthReadOnly = false;
+    depthStencilAttachment.stencilClearValue = 0;
+    depthStencilAttachment.stencilLoadOp = LoadOp::Undefined;
+    depthStencilAttachment.stencilStoreOp = StoreOp::Undefined;
+    depthStencilAttachment.stencilReadOnly = true;
+    renderPassDesc.depthStencilAttachment = &depthStencilAttachment;
     renderPassDesc.timestampWrites = nullptr;
     // encoder
     CommandEncoderDescriptor encoderDesc = {};
@@ -245,8 +260,16 @@ void App::InitializePipeline(){
         let ratio = 640.0 / 480.0;
         var offset = vec2f(-0.6875, -0.463);
         offset += 0.3 * vec2f(cos(uTime), sin(uTime));
+        let angle = uTime; // you can multiply it go rotate faster
+        let alpha = cos(angle);
+        let beta = sin(angle);
 
-        let pos = vec4f(vertex_pos.x+offset.x, (vertex_pos.y+offset.y)*ratio, vertex_pos.z, 1.0);
+        var pos = vec4f(vertex_pos.x+offset.x,
+        (vertex_pos.y+offset.y)*alpha,
+        alpha*vertex_pos.z- beta*(vertex_pos.y),
+        1.0);
+        pos.y*=ratio;
+        pos.z=pos.z*0.5+0.5;
         //let uv = -vertex_pos*0.6+vec3f(0.9,0.8,0.0);
         let uv = -vertex_pos*0.8+vec3f(1.0,0.9,0.0);
 
@@ -315,7 +338,15 @@ void App::InitializePipeline(){
     fragmentState.targetCount = 1;
     fragmentState.targets = &colorTarget;
     pipelineDesc.fragment = &fragmentState;
-    pipelineDesc.depthStencil = nullptr;
+    DepthStencilState depthStencilState = Default;
+    depthStencilState.depthCompare = CompareFunction::Always;
+    depthStencilState.depthWriteEnabled = false;
+    TextureFormat depthTextureFormat = TextureFormat::Depth24Plus;
+    depthStencilState.format = depthTextureFormat;
+    depthStencilState.stencilReadMask = 0;
+    depthStencilState.stencilWriteMask = 0;
+    pipelineDesc.depthStencil = &depthStencilState;
+    
     // multisampling
     pipelineDesc.multisample.count = 1;
     pipelineDesc.multisample.mask = ~0u;
@@ -329,16 +360,37 @@ void App::InitializePipeline(){
 
     pipeline = device.createRenderPipeline(pipelineDesc);
     shaderModule.release();
+
+    // Create the depth texture
+    TextureDescriptor depthTextureDesc;
+    depthTextureDesc.dimension = TextureDimension::_2D;
+    depthTextureDesc.format = depthTextureFormat;
+    depthTextureDesc.mipLevelCount = 1;
+    depthTextureDesc.sampleCount = 1;
+    depthTextureDesc.size = {640, 480, 1};
+    depthTextureDesc.usage = TextureUsage::RenderAttachment;
+    depthTextureDesc.viewFormatCount = 1;
+    depthTextureDesc.viewFormats = (WGPUTextureFormat*)&depthTextureFormat;
+    depthTexture = device.createTexture(depthTextureDesc);
+    TextureViewDescriptor depthTextureViewDesc;
+    depthTextureViewDesc.aspect = TextureAspect::DepthOnly;
+    depthTextureViewDesc.baseArrayLayer = 0;
+    depthTextureViewDesc.arrayLayerCount = 1;
+    depthTextureViewDesc.baseMipLevel = 0;
+    depthTextureViewDesc.mipLevelCount = 1;
+    depthTextureViewDesc.dimension = TextureViewDimension::_2D;
+    depthTextureViewDesc.format = depthTextureFormat;
+    depthTextureView = depthTexture.createView(depthTextureViewDesc);
 }
 void App::InitializeBuffers(){
     vertexData = {
-        +0.8, +0.7, +0.0,
-        +0.4, +0.7, +0.0,
-        +0.4, +0.3, +0.0,
+        +0.8, +0.7, +0.1,
+        +0.4, +0.7, +0.1,
+        +0.4, +0.3, +0.1,
 
-        +0.8, +0.7, +0.0,
-        +0.8, +0.3, +0.0,
-        +0.4, +0.3, +0.0
+        +0.8, +0.7, +0.1,
+        +0.8, +0.3, +0.1,
+        +0.4, +0.3, +0.1
     };
 
     vertexCount = static_cast<uint32_t>(vertexData.size() / 3);
