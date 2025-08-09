@@ -1,5 +1,8 @@
+#pragma once
 #include <GLFW/glfw3.h>
 #include <webgpu/webgpu.hpp>
+#include <vector>
+#include "ResourceManager.hpp"
 
 using namespace wgpu;
 
@@ -27,9 +30,9 @@ private:
     Buffer vertexBuffer;
     Buffer uniformBuffer;
     uint32_t vertexCount;
-    std::vector<float> vertexData;
     TextureView depthTextureView;
     Texture depthTexture;
+    std::vector<VertexAttributes> vertexData;
     
     RequiredLimits GetRequiredLimits(Adapter adapter) const;
     void InitializeBuffers();
