@@ -1,14 +1,14 @@
+#pragma once
 #include <webgpu/webgpu.hpp>
-#include <vector>
 #include <filesystem>
 #include <array>
 
 namespace fs = std::filesystem;
 
 struct VertexAttributes {
-    std::array<float, 3> position;
-    std::array<float, 3> normal;
-    std::array<float, 3> color;
+    std::array<float,3> position;
+    std::array<float,3> normal;
+    std::array<float,3> color;
 };
 
 

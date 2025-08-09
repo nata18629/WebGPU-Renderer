@@ -2,6 +2,7 @@
 #include "tiny_obj_loader.h"
 #include <fstream>
 #include <sstream>
+#include <vector>
 #include <string>
 #include "ResourceManager.hpp"
 

@@ -6,9 +6,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <filesystem>
-#include <fstream>
-
-//#include "ResourceManager.hpp"
 #include "App.hpp"
 
 using namespace wgpu;
@@ -304,8 +301,8 @@ void App::InitializePipeline(){
     fragmentState.targets = &colorTarget;
     pipelineDesc.fragment = &fragmentState;
     DepthStencilState depthStencilState = Default;
-    depthStencilState.depthCompare = CompareFunction::Always;
-    depthStencilState.depthWriteEnabled = false;
+    depthStencilState.depthCompare = CompareFunction::Less;
+    depthStencilState.depthWriteEnabled = true;
     TextureFormat depthTextureFormat = TextureFormat::Depth24Plus;
     depthStencilState.format = depthTextureFormat;
     depthStencilState.stencilReadMask = 0;
@@ -348,11 +345,18 @@ void App::InitializePipeline(){
     depthTextureView = depthTexture.createView(depthTextureViewDesc);
 }
 void App::InitializeBuffers(){
+    // vertexData = {
+    //     +0.8, +0.7, +0.1,
+    //     +0.4, +0.7, +0.1,
+    //     +0.4, +0.3, +0.1,
 
+    //     +0.8, +0.7, +0.1,
+    //     +0.8, +0.3, +0.1,
+    //     +0.4, +0.3, +0.1
+    // };
     ResourceManager::loadGeometryObj(MODELS_DIR/"monkey.obj", vertexData);
 
     vertexCount = static_cast<int>(vertexData.size());
-    std::cout << vertexCount;
 
     BufferDescriptor bufferDesc;
     bufferDesc.label = "vertex data";
