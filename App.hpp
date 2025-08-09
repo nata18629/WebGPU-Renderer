@@ -2,7 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <webgpu/webgpu.hpp>
 #include <vector>
-
+#include "ResourceManager.hpp"
 
 using namespace wgpu;
 
