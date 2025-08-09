@@ -8,13 +8,14 @@
 #include <filesystem>
 #include <fstream>
 
-#include "ResourceManager.hpp"
+//#include "ResourceManager.hpp"
 #include "App.hpp"
 
 using namespace wgpu;
 namespace fs = std::filesystem;
 
 auto RESOURCE_DIR = fs::path{"textures"};
+auto MODELS_DIR = fs::path{"models"};
 
 auto onDeviceError = [](WGPUErrorType type, char const* message, void* /* pUserData */) {
         std::cout << "Uncaptured device error: type " << type;
@@ -187,7 +188,7 @@ void App::MainLoop(){
     RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
     renderPass.setPipeline(pipeline);
     renderPass.setBindGroup(0, bindGroup, 0, nullptr);
-    renderPass.setVertexBuffer(0, vertexBuffer, 0, vertexBuffer.getSize());
+    renderPass.setVertexBuffer(0, vertexBuffer, 0, vertexData.size()*sizeof(VertexAttributes));
     renderPass.draw(vertexCount, 1, 0, 0);
     renderPass.end();
     CommandBufferDescriptor cmdBufferDescriptor = {};
@@ -250,13 +251,21 @@ void App::InitializePipeline(){
     }
     // vertex buffer layout
     VertexBufferLayout vertexBufferLayout;
-    VertexAttribute positionAttrib;
-    positionAttrib.shaderLocation = 0;
-    positionAttrib.offset = 0;
-    positionAttrib.format = VertexFormat::Float32x3;
-    vertexBufferLayout.attributeCount = 1;
-    vertexBufferLayout.attributes = &positionAttrib;
-    vertexBufferLayout.arrayStride = 3 * sizeof(float);
+    std::vector<VertexAttribute> vertexAttrib(3);
+    
+    vertexAttrib[0].shaderLocation = 0;
+    vertexAttrib[0].offset = offsetof(VertexAttributes, position);
+    vertexAttrib[0].format = VertexFormat::Float32x3;
+    vertexAttrib[1].shaderLocation = 1;
+    vertexAttrib[1].offset = offsetof(VertexAttributes, normal);
+    vertexAttrib[1].format = VertexFormat::Float32x3;
+    vertexAttrib[2].shaderLocation = 2;
+    vertexAttrib[2].offset = offsetof(VertexAttributes, color);
+    vertexAttrib[2].format = VertexFormat::Float32x3;
+
+    vertexBufferLayout.attributeCount = vertexAttrib.size();
+    vertexBufferLayout.attributes = vertexAttrib.data();
+    vertexBufferLayout.arrayStride = sizeof(VertexAttributes);
     vertexBufferLayout.stepMode = VertexStepMode::Vertex;
 
     // pipeline
@@ -339,22 +348,16 @@ void App::InitializePipeline(){
     depthTextureView = depthTexture.createView(depthTextureViewDesc);
 }
 void App::InitializeBuffers(){
-    vertexData = {
-        +0.8, +0.7, +0.1,
-        +0.4, +0.7, +0.1,
-        +0.4, +0.3, +0.1,
 
-        +0.8, +0.7, +0.1,
-        +0.8, +0.3, +0.1,
-        +0.4, +0.3, +0.1
-    };
+    ResourceManager::loadGeometryObj(MODELS_DIR/"monkey.obj", vertexData);
 
-    vertexCount = static_cast<uint32_t>(vertexData.size() / 3);
+    vertexCount = static_cast<int>(vertexData.size());
+    std::cout << vertexCount;
 
     BufferDescriptor bufferDesc;
     bufferDesc.label = "vertex data";
     bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Vertex;
-    bufferDesc.size = vertexData.size() * sizeof(float);
+    bufferDesc.size = vertexData.size() * sizeof(VertexAttributes);
     bufferDesc.mappedAtCreation = false;
     vertexBuffer = device.createBuffer(bufferDesc);
     queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);

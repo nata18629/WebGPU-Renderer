@@ -5,7 +5,7 @@ project(
     LANGUAGES CXX C # programming languages used by the project
 )
 
-add_executable(App main.cpp App.cpp App.hpp ResourceManager.cpp ResourceManager.hpp )
+add_executable(App main.cpp App.cpp App.hpp ResourceManager.cpp ResourceManager.hpp tiny_obj_loader.h)
 add_subdirectory(glfw)
 add_subdirectory(glfw3webgpu)
 add_subdirectory(webgpu)

@@ -1,5 +1,7 @@
 #include <GLFW/glfw3.h>
 #include <webgpu/webgpu.hpp>
+#include <vector>
+#include "ResourceManager.hpp"
 
 using namespace wgpu;
 
@@ -27,7 +29,7 @@ private:
     Buffer vertexBuffer;
     Buffer uniformBuffer;
     uint32_t vertexCount;
-    std::vector<float> vertexData;
+    std::vector<VertexAttributes> vertexData;
     TextureView depthTextureView;
     Texture depthTexture;
     
