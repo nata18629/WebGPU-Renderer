@@ -17,22 +17,62 @@ struct VertexOutput {
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
     //let coords = (position+1.0)*100.0;
+    let objectTranslate = vec3f(0.0,0.0,0.0);
+
     let ratio = 640.0 / 480.0;
     var offset = vec2f(-0.6875, -0.463);
     offset += 0.3 * vec2f(cos(uTime), sin(uTime));
     let angle = uTime;
-    let alpha = cos(angle);
-    let beta = sin(angle);
+    let cos1 = cos(angle);
+    let sin1 = sin(angle);
 
-    var pos = vec4f(in.position.x,
-    (in.position.y)*alpha+beta*in.position.z,
-    alpha*in.position.z- beta*(in.position.y),
-    1.0);
-    pos.y*=ratio;
-    pos.z=pos.z*0.5+0.5;
+    let rotYZ = transpose(mat3x3f(
+        1.0, 0.0, 0.0,
+        0.0, cos1, sin1,
+        0.0, -sin1, cos1,
+    ));
+
+    let rotXY = transpose(mat3x3f(
+        cos1, sin1, 0.0,
+        -sin1, cos1, 0.0,
+        0.0, 0.0, 1.0,
+    ));
+
+    var pos = vec3f(in.position);
+    pos = rotXY*rotYZ*pos;
+
+    // let P = transpose(mat4x4f(
+    //     1.0, 0.0, 0.0, 0.0,
+    //     0.0, ratio, 0.0, 0.0,
+    //     0.0, 0.0, 0.5, 0.5,
+    //     0.0, 0.0, 0.0, 1.0,
+    // ));
+    let focalPoint = vec3f(0.0, 0.0, -2.0);
+    pos = pos - focalPoint;
+
+    // We divide by the Z coord
+    let focalLength = 0.8;
+    pos.x /= pos.z/focalLength;
+    pos.y /= pos.z/focalLength;
+
+    let near = 0.01;
+    let far = 100.0;
+    let scale = 1.0;
+    let P = transpose(mat4x4f(
+        1.0 / scale,      0.0,           0.0,                  0.0,
+            0.0,     ratio / scale,      0.0,                  0.0,
+            0.0,          0.0,      1.0 / (far - near), -near / (far - near),
+            0.0,          0.0,           0.0,                  1.0,
+    ));
+    
+    // let a = pos.z+2.0;
+    // pos.x/=a;
+    // pos.y/=a;
+
     let uv = -in.position.xyz*0.6+vec3f(0.9,0.8,0.0);
     //let uv = -position*0.8+vec3f(1.0,0.9,0.0);
-    return VertexOutput(pos, uv, in.normal, in.color);
+    return VertexOutput(P*vec4f(pos+objectTranslate,1.0),
+    uv, in.normal, in.color);
 }
 
 @fragment
