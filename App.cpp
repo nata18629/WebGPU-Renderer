@@ -98,22 +98,16 @@ bool App::Initialize() {
     glfwTerminate();
     return 1;
     }
-    // surface
-    surface = glfwGetWGPUSurface(instance, window);
-    config = {};
-    config.nextInChain = nullptr;
-    config.width = 640;
-    config.height = 480;
-    surfaceFormat = surface.getPreferredFormat(adapter);
-    config.format = surfaceFormat;
-    config.viewFormatCount = 0;
-    config.viewFormats = nullptr;
-    config.usage = WGPUTextureUsage_RenderAttachment;
-    config.device = device;
-    config.presentMode = WGPUPresentMode_Fifo;
-    config.alphaMode = WGPUCompositeAlphaMode_Auto;
-    surface.configure(config);
-    // queue
+    glfwSetWindowUserPointer(window, this);
+    glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
+        auto that = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+        if (that != nullptr) that->onMouseMove(xpos, ypos);
+    });
+    glfwSetMouseButtonCallback(window, [](GLFWwindow* window, int button, int action, int mods) {
+        auto that = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+        if (that != nullptr) that->onMouseButton(button, action, mods);
+    });
+    InitializeSurface(adapter);
     queue = device.getQueue();
     InitializeTexture();
     InitializeBuffers();
@@ -238,6 +232,22 @@ std::pair<SurfaceTexture, TextureView> App::GetNextSurfaceViewData() {
     viewDescriptor.aspect = WGPUTextureAspect_All;
     TextureView targetView = wgpuTextureCreateView(surfaceTexture.texture, &viewDescriptor);
     return { surfaceTexture, targetView };
+}
+void App::InitializeSurface(Adapter adapter){
+    surface = glfwGetWGPUSurface(instance, window);
+    config = {};
+    config.nextInChain = nullptr;
+    config.width = 640;
+    config.height = 480;
+    surfaceFormat = surface.getPreferredFormat(adapter);
+    config.format = surfaceFormat;
+    config.viewFormatCount = 0;
+    config.viewFormats = nullptr;
+    config.usage = WGPUTextureUsage_RenderAttachment;
+    config.device = device;
+    config.presentMode = WGPUPresentMode_Fifo;
+    config.alphaMode = WGPUCompositeAlphaMode_Auto;
+    surface.configure(config);
 }
 void App::InitializePipeline(){
     // create shader module
@@ -415,4 +425,10 @@ void App::InitializeBinding(){
     bindGroupDesc.entryCount = 2;
     bindGroupDesc.entries = bindings.data();
     bindGroup = device.createBindGroup(bindGroupDesc);
+}
+void App::onMouseMove(double x, double y){
+ 
+}
+void App::onMouseButton(int button, int action, int mods){
+
 }

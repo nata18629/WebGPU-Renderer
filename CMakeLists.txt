@@ -6,12 +6,14 @@ project(
 )
 
 add_executable(App main.cpp App.cpp App.hpp
-    ResourceManager.cpp ResourceManager.hpp tiny_obj_loader.h)
+    ResourceManager.cpp ResourceManager.hpp tiny_obj_loader.h
+    Helpers.hpp)
 add_subdirectory(glfw)
 add_subdirectory(glfw3webgpu)
 add_subdirectory(webgpu)
+find_package(glm CONFIG REQUIRED)
 target_include_directories(App PRIVATE stb_image/)
-target_link_libraries(App PRIVATE glfw webgpu glfw3webgpu)
+target_link_libraries(App PRIVATE glfw webgpu glfw3webgpu glm::glm)
 set_target_properties(App PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
