@@ -3,11 +3,15 @@
 #include <cassert>
 #include <GLFW/glfw3.h>
 #include <glfw3webgpu.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/common.hpp>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <filesystem>
 #include "App.hpp"
 
+constexpr float PI = 3.141592653589793f;
 using namespace wgpu;
 namespace fs = std::filesystem;
 
@@ -21,7 +25,6 @@ auto onDeviceError = [](WGPUErrorType type, char const* message, void* /* pUserD
 };
 Texture LoadTexture(const fs::path& path, Device device, TextureView* pTextureView){
     // create texture
-    
     int width, height, channels;
     unsigned char *data = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
     if (data==nullptr) return nullptr;
@@ -101,16 +104,21 @@ bool App::Initialize() {
     glfwSetWindowUserPointer(window, this);
     glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
         auto that = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
-        if (that != nullptr) that->onMouseMove(xpos, ypos);
+        if (that != nullptr) that->OnMouseMove(xpos, ypos);
     });
     glfwSetMouseButtonCallback(window, [](GLFWwindow* window, int button, int action, int mods) {
         auto that = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
-        if (that != nullptr) that->onMouseButton(button, action, mods);
+        if (that != nullptr) that->OnMouseButton(button, action, mods);
+    });
+    glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods){
+        auto that = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+        if (that != nullptr) that->OnArrowsPressed(key, scancode, action, mods);
     });
     InitializeSurface(adapter);
     queue = device.getQueue();
     InitializeTexture();
     InitializeBuffers();
+    UpdateViewMatrix();
     InitializeBinding();
     InitializePipeline();
     adapter.release();
@@ -140,8 +148,8 @@ void App::Terminate(){
 }
 void App::MainLoop(){
     glfwPollEvents();
-    float t = static_cast<float>(glfwGetTime()); // glfwGetTime returns a double
-    queue.writeBuffer(uniformBuffer, 0, &t, sizeof(float));
+    time = static_cast<float>(glfwGetTime()); // glfwGetTime returns a double
+    queue.writeBuffer(uniformBuffer, offsetof(Uniforms, time), &time, sizeof(float));
     auto [ surfaceTexture, targetView ] = GetNextSurfaceViewData();
     if (!targetView) return;
     RenderPassDescriptor renderPassDesc = {};
@@ -355,15 +363,6 @@ void App::InitializePipeline(){
     depthTextureView = depthTexture.createView(depthTextureViewDesc);
 }
 void App::InitializeBuffers(){
-    // vertexData = {
-    //     +0.8, +0.7, +0.1,
-    //     +0.4, +0.7, +0.1,
-    //     +0.4, +0.3, +0.1,
-
-    //     +0.8, +0.7, +0.1,
-    //     +0.8, +0.3, +0.1,
-    //     +0.4, +0.3, +0.1
-    // };
     ResourceManager::loadGeometryObj(MODELS_DIR/"monkey.obj", vertexData);
 
     vertexCount = static_cast<int>(vertexData.size());
@@ -376,13 +375,14 @@ void App::InitializeBuffers(){
     vertexBuffer = device.createBuffer(bufferDesc);
     queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
 
-    bufferDesc.label = "time data";
-    bufferDesc.size = 4 * sizeof(float);
+    bufferDesc.label = "uniform data";
+    bufferDesc.size = sizeof(Uniforms);
     bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
     bufferDesc.mappedAtCreation = false;
     uniformBuffer = device.createBuffer(bufferDesc);
-    float currentTime = 1.0f;
-    queue.writeBuffer(uniformBuffer, 0, &currentTime, sizeof(float));
+    
+    float t = static_cast<float>(glfwGetTime());
+    queue.writeBuffer(uniformBuffer, offsetof(Uniforms, time), &t, sizeof(float));
 
 }
 void App::InitializeTexture(){
@@ -403,7 +403,7 @@ void App::InitializeBinding(){
     uniformBindingLayout.binding = 1;
     uniformBindingLayout.visibility = ShaderStage::Vertex;
     uniformBindingLayout.buffer.type = BufferBindingType::Uniform;
-    uniformBindingLayout.buffer.minBindingSize = 4 * sizeof(float);
+    uniformBindingLayout.buffer.minBindingSize = sizeof(Uniforms);
     // Create a bind group layout
     BindGroupLayoutDescriptor bindGroupLayoutDesc{};
     bindGroupLayoutDesc.entryCount = 2;
@@ -418,7 +418,7 @@ void App::InitializeBinding(){
     bindings[1].binding = 1;
     bindings[1].buffer = uniformBuffer;
     bindings[1].offset = 0;
-    bindings[1].size = 4*sizeof(float);
+    bindings[1].size = sizeof(Uniforms);
 
     BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout = bindGroupLayout;
@@ -426,9 +426,83 @@ void App::InitializeBinding(){
     bindGroupDesc.entries = bindings.data();
     bindGroup = device.createBindGroup(bindGroupDesc);
 }
-void App::onMouseMove(double x, double y){
- 
-}
-void App::onMouseButton(int button, int action, int mods){
+void App::UpdateViewMatrix(){
+    float cx = cos(cameraState.angles.x);
+    float sx = sin(cameraState.angles.x);
+    float cy = cos(cameraState.angles.y);
+    float sy = sin(cameraState.angles.y);
+    glm::vec3 direction = glm::vec3(cx * cy, sx * cy, sy);
+    // glm::mat4 transform(1);
+    // transform = glm::translate(transform, position);
+    glm::vec3 change = cameraState.position;
+    //change = glm::normalize(glm::cross(change, glm::vec3(0,1,0)));
+    //transform = glm::translate(transform, glm::vec3(cameraState.position.x, cameraState.position.y, 0.0f));
+//    uniforms.view = glm::lookAt(glm::vec3(cameraState.position.x, cameraState.position.y, 0.0f), position+glm::vec3(cameraState.position.x, cameraState.position.y, 0.0f), glm::vec3(0, 0, 1));
+    //uniforms.view=uniforms.view*transform;
+    //uniforms.view = glm::lookAt(position, glm::vec3(0.0f),glm::vec3(0, 0, 1));
+    
+    
+    // glm::vec3 direction;
+    // direction.x = cos(cameraState.angles.y)*cos(cameraState.angles.x);
+    // direction.y = sin(cameraState.angles.x);
+    // direction.z = sin(cameraState.angles.y)*cos(cameraState.angles.x);
+    // direction = glm::normalize(direction);
+    uniforms.view = glm::lookAt(change,change+direction, glm::vec3(0,0,1));
 
+
+    //uniforms.view=uniforms.view*transform;
+    queue.writeBuffer(
+        uniformBuffer,
+        offsetof(Uniforms, view),
+        &uniforms.view,
+        sizeof(Uniforms::view)
+    );
+}
+void App::OnMouseMove(double x, double y){
+    if (drag.active) {
+        glm::vec2 currentMouse = glm::vec2(-(float)x, (float)y);
+        glm::vec2 delta = (currentMouse - drag.startMouse) * drag.sensitivity;
+        cameraState.angles = drag.startCameraState.angles + delta;
+        cameraState.angles.y = glm::clamp(cameraState.angles.y, -PI / 2.0f + 1e-5f, PI / 2.0f - 1e-5f);
+        UpdateViewMatrix();
+    }
+}
+void App::OnMouseButton(int button, int action, int mods){
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        switch(action) {
+        case GLFW_PRESS:
+            drag.active = true;
+            double xpos, ypos;
+            glfwGetCursorPos(window, &xpos, &ypos);
+            drag.startMouse = glm::vec2(-(float)xpos, (float)ypos);
+            drag.startCameraState = cameraState;
+            break;
+        case GLFW_RELEASE:
+            drag.active = false;
+            break;
+        }
+    }
+}
+void App::OnArrowsPressed(int key, int scancode, int action, int mods){
+    float delta=glfwGetTime()-time;
+    delta*=3;
+    float cx = cos(cameraState.angles.x);
+    float sx = sin(cameraState.angles.x);
+    float cy = cos(cameraState.angles.y);
+    float sy = sin(cameraState.angles.y);
+    glm::vec3 direction = glm::vec3(cx * cy, sx * cy, sy);
+    direction = glm::normalize(direction);
+    if(key==GLFW_KEY_LEFT || key==GLFW_KEY_A){
+        cameraState.position -= glm::normalize(glm::cross(direction,glm::vec3(0,0,1)))*delta;
+    }
+    else if(key==GLFW_KEY_RIGHT || key==GLFW_KEY_D){
+        cameraState.position += glm::normalize(glm::cross(direction,glm::vec3(0,0,1)))*delta;
+    }
+    if(key==GLFW_KEY_UP || key==GLFW_KEY_W){
+        cameraState.position -= direction*delta;
+    }
+    else if(key==GLFW_KEY_DOWN || key==GLFW_KEY_S){
+        cameraState.position += direction*delta;
+    }
+    UpdateViewMatrix();
 }

@@ -12,12 +12,12 @@ struct VertexOutput {
 };
 
 struct Uniforms {
-    time: f32,
-    view: mat4x4f
+    view: mat4x4f,
+    time: f32
 }
 
 @group(0) @binding(0) var imageTexture: texture_2d<f32>;
-@group(0) @binding(1) var<uniform> uTime: f32;
+@group(0) @binding(1) var<uniform> uUniforms: Uniforms;
 
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
@@ -26,48 +26,58 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     let ratio = 640.0 / 480.0;
     var offset = vec2f(-0.6875, -0.463);
-    offset += 0.3 * vec2f(cos(uTime), sin(uTime));
-    let angle = uTime;
+    offset += 0.3 * vec2f(cos(uUniforms.time), sin(uUniforms.time));
+    let angle = uUniforms.time;
     let cos1 = cos(angle);
     let sin1 = sin(angle);
 
-    let rotYZ = transpose(mat3x3f(
-        1.0, 0.0, 0.0,
-        0.0, cos1, sin1,
-        0.0, -sin1, cos1,
+    let rotYZ = transpose(mat4x4f(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, cos1, sin1, 0.0,
+        0.0, -sin1, cos1, 0.0,
+        0.0, 0.0, 0.0, 1.0
     ));
 
-    let rotXY = transpose(mat3x3f(
-        cos1, sin1, 0.0,
-        -sin1, cos1, 0.0,
-        0.0, 0.0, 1.0,
+    let rotXY = transpose(mat4x4f(
+        cos1, sin1, 0.0, 0.0,
+        -sin1, cos1, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+
+    ));
+    let modelT = transpose(mat4x4f(
+        1.0,  0.0, 0.0, 0.5,
+        0.0,  1.0, 0.0, 0.0,
+        0.0,  0.0, 1.0, -0.5,
+        0.0,  0.0, 0.0, 1.0
     ));
 
-    var pos = vec3f(in.position);
-    pos = rotXY*rotYZ*pos;
+    let model = modelT;
+    
 
-    // let P = transpose(mat4x4f(
-    //     1.0, 0.0, 0.0, 0.0,
-    //     0.0, ratio, 0.0, 0.0,
-    //     0.0, 0.0, 0.5, 0.5,
-    //     0.0, 0.0, 0.0, 1.0,
-    // ));
     let focalPoint = vec3f(0.0, 0.0, -2.0);
-    pos = pos - focalPoint;
+    let viewT = transpose(mat4x4f(
+    1.0,  0.0, 0.0, -focalPoint.x,
+    0.0,  1.0, 0.0, -focalPoint.y,
+    0.0,  0.0, 1.0, -focalPoint.z,
+    0.0,  0.0, 0.0,     1.0
+    ));
+    //pos = pos - focalPoint;
 
     // We divide by the Z coord
-    let focalLength = 0.8;
-    pos.x /= pos.z/focalLength;
-    pos.y /= pos.z/focalLength;
+    let focalLength = 1.2;
+    // pos.x /= pos.z/focalLength;
+    // pos.y /= pos.z/focalLength;
 
     let near = 0.01;
     let far = 100.0;
     let scale = 1.0;
+    let divider = 1 / (focalLength * (far - near));
     let P = transpose(mat4x4f(
         1.0 / scale,      0.0,           0.0,                  0.0,
             0.0,     ratio / scale,      0.0,                  0.0,
-            0.0,          0.0,      1.0 / (far - near), -near / (far - near),
-            0.0,          0.0,           0.0,                  1.0,
+            0.0,          0.0,      far*divider, -far*near*divider,
+            0.0,          0.0,           1.0/focalLength,                  0.0,
     ));
     
     // let a = pos.z+2.0;
@@ -76,7 +86,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     let uv = -in.position.xyz*0.6+vec3f(0.9,0.8,0.0);
     //let uv = -position*0.8+vec3f(1.0,0.9,0.0);
-    return VertexOutput(P*vec4f(pos+objectTranslate,1.0),
+    return VertexOutput(P*viewT*uUniforms.view*model*vec4f(in.position,1.0),
     uv, in.normal, in.color);
 }
 

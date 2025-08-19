@@ -34,6 +34,10 @@ private:
     TextureView depthTextureView;
     Texture depthTexture;
     std::vector<VertexAttributes> vertexData;
+    CameraState cameraState;
+    Uniforms uniforms;
+    DragState drag;
+    float time=0;
     
     RequiredLimits GetRequiredLimits(Adapter adapter) const;
     void InitializeSurface(Adapter adapter);
@@ -42,6 +46,8 @@ private:
     std::pair<SurfaceTexture, TextureView> GetNextSurfaceViewData();
     void InitializeTexture();
     void InitializeBinding();
-    void onMouseMove(double x, double y);
-    void onMouseButton(int button, int action, int mods);
+    void UpdateViewMatrix();
+    void OnMouseMove(double x, double y);
+    void OnMouseButton(int button, int action, int mods);
+    void OnArrowsPressed(int key, int scancode, int action, int mods);
 };
