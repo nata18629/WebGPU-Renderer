@@ -46,6 +46,7 @@ private:
     std::pair<SurfaceTexture, TextureView> GetNextSurfaceViewData();
     void InitializeTexture();
     void InitializeBinding();
+    void SmoothShading();
     void UpdateViewMatrix();
     void OnMouseMove(double x, double y);
     void OnMouseButton(int button, int action, int mods);

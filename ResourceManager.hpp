@@ -11,6 +11,10 @@ struct VertexAttributes {
     std::array<float,3> color;
 };
 
+// struct MeshData {
+//     VertexAttributes vertexData;
+
+// }
 
 class ResourceManager {
     public:

@@ -363,8 +363,8 @@ void App::InitializePipeline(){
     depthTextureView = depthTexture.createView(depthTextureViewDesc);
 }
 void App::InitializeBuffers(){
-    ResourceManager::loadGeometryObj(MODELS_DIR/"krzeslo.obj", vertexData);
-
+    ResourceManager::loadGeometryObj(MODELS_DIR/"monkey.obj", vertexData);
+    //SmoothShading();
     vertexCount = static_cast<int>(vertexData.size());
 
     BufferDescriptor bufferDesc;
@@ -426,6 +426,14 @@ void App::InitializeBinding(){
     bindGroupDesc.entries = bindings.data();
     bindGroup = device.createBindGroup(bindGroupDesc);
 }
+void App::SmoothShading(){
+    //std::for_each(vertexData.begin(), vertexData.end(), [](VertexAttributes vertex){
+    for (auto &vertex : vertexData){
+        float average = (vertex.normal[0]+vertex.normal[1]+vertex.normal[2])/3;
+        vertex.normal = {average, average, average};
+    }
+    //});
+}
 void App::UpdateViewMatrix(){
     float cx = cos(cameraState.angles.x);
     float sx = sin(cameraState.angles.x);
@@ -449,7 +457,6 @@ void App::UpdateViewMatrix(){
     // direction = glm::normalize(direction);
     uniforms.view = glm::lookAt(change,change+direction, glm::vec3(0,1,0));
 
-
     //uniforms.view=uniforms.view*transform;
     queue.writeBuffer(
         uniformBuffer,
@@ -457,6 +464,8 @@ void App::UpdateViewMatrix(){
         &uniforms.view,
         sizeof(Uniforms::view)
     );
+    glm::vec3 cameraPos = cameraState.position+direction;
+    queue.writeBuffer(uniformBuffer, offsetof(Uniforms, cameraPos), &cameraPos, sizeof(Uniforms::cameraPos));
 }
 void App::OnMouseMove(double x, double y){
     if (drag.active) {

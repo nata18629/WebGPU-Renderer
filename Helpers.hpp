@@ -7,8 +7,9 @@ struct Uniforms {
         0.0, 0.0, 1.0, 0.0,
         0.0, 0.0, 0.0, 1.0,
     };
+    glm::vec3 cameraPos;
     float time;
-    float pad[3];
+    //float pad[3];
 };
 
 struct CameraState {

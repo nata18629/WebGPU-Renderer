@@ -8,11 +8,13 @@ struct VertexOutput {
     @builtin(position) position: vec4f,
     @location(0) uv: vec3f,
     @location(1) normal: vec3f,
-    @location(2) color: vec3f
+    @location(2) color: vec3f,
+    @location(3) viewDirection: vec3f
 };
 
 struct Uniforms {
     view: mat4x4f,
+    cameraPos: vec3f,
     time: f32
 }
 
@@ -52,7 +54,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
         0.0,  0.0, 0.0, 1.0
     ));
 
-    let model = modelT;
+    let model = rotYZ*modelT;
     
 
     let focalPoint = vec3f(0.0, 0.0, -2.0);
@@ -80,36 +82,36 @@ fn vs_main(in: VertexInput) -> VertexOutput {
             0.0,          0.0,           1.0/focalLength,                  0.0,
     ));
     
-    // let a = pos.z+2.0;
-    // pos.x/=a;
-    // pos.y/=a;
+    let worldPosition = model * vec4f(in.position, 1.0);
+    let view = uUniforms.cameraPos - worldPosition.xyz;
 
     let uv = -in.position.xyz*0.6+vec3f(0.9,0.8,0.0);
     //let uv = -position*0.8+vec3f(1.0,0.9,0.0);
-    return VertexOutput(P*viewT*uUniforms.view*model*vec4f(in.position,1.0),
-    uv, in.normal, in.color);
+    return VertexOutput(P*viewT*uUniforms.view*worldPosition,
+    uv, in.normal, in.color, view);
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     //let texelCoords = vec2i(in.uv.xy * vec2f(textureDimensions(imageTexture)));
     //let color = textureLoad(imageTexture, texelCoords, 0).rgb;
-    let lightDirection1 = vec3f(0.5, -0.9, 0.1);
+    let lightDirection1 = vec3f(0.5, -0.5, 0.1);
     let lightDirection2 = vec3f(0.2, 0.4, 0.3);
+    let L = vec3f(0.5, -0.9, 0.1);
     
-    let shading1 = max(0.0, dot(lightDirection1, in.normal));
-    let shading2 = max(0.0, dot(lightDirection2, in.normal));
-    let shading = shading1 + shading2;
+    //let shading1 = max(0.0, dot(lightDirection1, in.normal));
+    //let shading2 = max(0.0, dot(lightDirection2, in.normal));
+    let diffuse = max(0.0, dot(L, in.normal))*in.color;
 
-    // var specular = 0.0;
-    // let L = direction;
-    // let N = in.normal;
-    // let R = reflect(-L, N);
-    // let cosAngle = dot(R, V);
-    // if (cosAngle > 0.99) {
-    // specular = 1.0;
-    // }
-
-    let color = in.color * shading;
+    var specular = 0.0;
+    
+    let N = in.normal;
+    let R = reflect(-L, N);
+    let V = normalize(in.viewDirection);
+    let RoV = max(0.0, dot(R, V));
+    let hardness = 1.3;
+    specular = pow(RoV, hardness);
+    //shading += specular;
+    let color = specular+diffuse;
     return vec4f(color,1.0);
 }
