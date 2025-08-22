@@ -363,7 +363,7 @@ void App::InitializePipeline(){
     depthTextureView = depthTexture.createView(depthTextureViewDesc);
 }
 void App::InitializeBuffers(){
-    ResourceManager::loadGeometryObj(MODELS_DIR/"monkey.obj", vertexData);
+    ResourceManager::loadGeometryObj(MODELS_DIR/"krzeslo.obj", vertexData);
 
     vertexCount = static_cast<int>(vertexData.size());
 
@@ -431,7 +431,7 @@ void App::UpdateViewMatrix(){
     float sx = sin(cameraState.angles.x);
     float cy = cos(cameraState.angles.y);
     float sy = sin(cameraState.angles.y);
-    glm::vec3 direction = glm::vec3(cx * cy, sx * cy, sy);
+    glm::vec3 direction = glm::vec3(cx * cy, sy, sx * cy);
     // glm::mat4 transform(1);
     // transform = glm::translate(transform, position);
     glm::vec3 change = cameraState.position;
@@ -447,7 +447,7 @@ void App::UpdateViewMatrix(){
     // direction.y = sin(cameraState.angles.x);
     // direction.z = sin(cameraState.angles.y)*cos(cameraState.angles.x);
     // direction = glm::normalize(direction);
-    uniforms.view = glm::lookAt(change,change+direction, glm::vec3(0,0,1));
+    uniforms.view = glm::lookAt(change,change+direction, glm::vec3(0,1,0));
 
 
     //uniforms.view=uniforms.view*transform;
@@ -485,18 +485,18 @@ void App::OnMouseButton(int button, int action, int mods){
 }
 void App::OnArrowsPressed(int key, int scancode, int action, int mods){
     float delta=glfwGetTime()-time;
-    delta*=3;
+    delta*=5;
     float cx = cos(cameraState.angles.x);
     float sx = sin(cameraState.angles.x);
     float cy = cos(cameraState.angles.y);
     float sy = sin(cameraState.angles.y);
-    glm::vec3 direction = glm::vec3(cx * cy, sx * cy, sy);
+    glm::vec3 direction = glm::vec3(cx * cy, sy, sx * cy);
     direction = glm::normalize(direction);
     if(key==GLFW_KEY_LEFT || key==GLFW_KEY_A){
-        cameraState.position -= glm::normalize(glm::cross(direction,glm::vec3(0,0,1)))*delta;
+        cameraState.position -= glm::normalize(glm::cross(direction,glm::vec3(0,1,0)))*delta;
     }
     else if(key==GLFW_KEY_RIGHT || key==GLFW_KEY_D){
-        cameraState.position += glm::normalize(glm::cross(direction,glm::vec3(0,0,1)))*delta;
+        cameraState.position += glm::normalize(glm::cross(direction,glm::vec3(0,1,0)))*delta;
     }
     if(key==GLFW_KEY_UP || key==GLFW_KEY_W){
         cameraState.position -= direction*delta;

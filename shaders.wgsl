@@ -96,9 +96,20 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     //let color = textureLoad(imageTexture, texelCoords, 0).rgb;
     let lightDirection1 = vec3f(0.5, -0.9, 0.1);
     let lightDirection2 = vec3f(0.2, 0.4, 0.3);
+    
     let shading1 = max(0.0, dot(lightDirection1, in.normal));
     let shading2 = max(0.0, dot(lightDirection2, in.normal));
     let shading = shading1 + shading2;
+
+    // var specular = 0.0;
+    // let L = direction;
+    // let N = in.normal;
+    // let R = reflect(-L, N);
+    // let cosAngle = dot(R, V);
+    // if (cosAngle > 0.99) {
+    // specular = 1.0;
+    // }
+
     let color = in.color * shading;
     return vec4f(color,1.0);
 }
