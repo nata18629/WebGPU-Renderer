@@ -109,9 +109,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     let R = reflect(-L, N);
     let V = normalize(in.viewDirection);
     let RoV = max(0.0, dot(R, V));
-    let hardness = 1.3;
+    let hardness = 4.0;
     specular = pow(RoV, hardness);
     //shading += specular;
-    let color = specular+diffuse;
+    let ambient = 0.1;
+    let color = specular+diffuse+ambient;
     return vec4f(color,1.0);
 }
