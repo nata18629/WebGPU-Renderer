@@ -1,7 +1,7 @@
-#include "App.hpp"
+#include "Renderer.hpp"
 
 int main (int, char**) {
-    App app;
+    Renderer app;
     if (!app.Initialize()){
         return 1;
     }

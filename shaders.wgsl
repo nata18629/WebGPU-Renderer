@@ -18,8 +18,8 @@ struct Uniforms {
     time: f32
 }
 
-@group(0) @binding(0) var imageTexture: texture_2d<f32>;
-@group(0) @binding(1) var<uniform> uUniforms: Uniforms;
+@group(0) @binding(0) var<uniform> uUniforms: Uniforms;
+@group(1) @binding(0) var imageTexture: texture_2d<f32>;
 
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {

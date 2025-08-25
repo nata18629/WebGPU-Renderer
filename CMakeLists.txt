@@ -5,9 +5,9 @@ project(
     LANGUAGES CXX C # programming languages used by the project
 )
 
-add_executable(App main.cpp App.cpp App.hpp
+add_executable(App main.cpp Renderer.cpp Renderer.hpp
     ResourceManager.cpp ResourceManager.hpp tiny_obj_loader.h
-    Helpers.hpp)
+    Helpers.hpp Mesh.cpp Mesh.hpp)
 add_subdirectory(glfw)
 add_subdirectory(glfw3webgpu)
 add_subdirectory(webgpu)

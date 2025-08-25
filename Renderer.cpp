@@ -6,67 +6,23 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/common.hpp>
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 #include <filesystem>
-#include "App.hpp"
+#include "ResourceManager.hpp"
+#include "Renderer.hpp"
 
 constexpr float PI = 3.141592653589793f;
 using namespace wgpu;
 namespace fs = std::filesystem;
 
-auto RESOURCE_DIR = fs::path{"textures"};
-auto MODELS_DIR = fs::path{"models"};
 
 auto onDeviceError = [](WGPUErrorType type, char const* message, void* /* pUserData */) {
         std::cout << "Uncaptured device error: type " << type;
         if (message) std::cout << " (" << message << ")";
         std::cout << std::endl;
 };
-Texture LoadTexture(const fs::path& path, Device device, TextureView* pTextureView){
-    // create texture
-    int width, height, channels;
-    unsigned char *data = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
-    if (data==nullptr) return nullptr;
-    TextureDescriptor textureDesc;
-    textureDesc.dimension = TextureDimension::_2D;
-    textureDesc.format = TextureFormat::RGBA8Unorm; // by convention for bmp, png and jpg file. Be careful with other formats.
-    textureDesc.mipLevelCount = 1;
-    textureDesc.sampleCount = 1;
-    textureDesc.size = { (unsigned int)width, (unsigned int)height, 1 };
-    textureDesc.usage = TextureUsage::TextureBinding | TextureUsage::CopyDst;
-    textureDesc.viewFormatCount = 0;
-    textureDesc.viewFormats = nullptr;
-    Texture texture = device.createTexture(textureDesc);
-    // load texture to gpu
-    ImageCopyTexture destination;
-    destination.texture = texture;
-    destination.mipLevel = 0;
-    destination.origin = { 0, 0, 0 }; // equivalent of the offset argument of Queue::writeBuffer
-    destination.aspect = TextureAspect::All; // only relevant for depth/Stencil textures
-    TextureDataLayout source;
-    source.offset = 0;
-    source.bytesPerRow = 4 *textureDesc.size.width;
-    source.rowsPerImage = textureDesc.size.height;
-    Queue queue = device.getQueue();
-    queue.writeTexture(destination, data, 4 * textureDesc.size.width * textureDesc.size.height, source, textureDesc.size);
-    queue.release();
 
-    TextureViewDescriptor textureViewDesc;
-    textureViewDesc.aspect = TextureAspect::All;
-    textureViewDesc.baseArrayLayer = 0;
-    textureViewDesc.arrayLayerCount = 1;
-    textureViewDesc.baseMipLevel = 0;
-    textureViewDesc.mipLevelCount = textureDesc.mipLevelCount;
-    textureViewDesc.dimension = TextureViewDimension::_2D;
-    textureViewDesc.format = textureDesc.format;
-    *pTextureView = texture.createView(textureViewDesc);
 
-    stbi_image_free(data);
-    return texture;
-}
-
-bool App::Initialize() {
+bool Renderer::Initialize() {
     // instance
     std::cout <<"start init"<<std::endl;
     InstanceDescriptor desc = {};
@@ -103,36 +59,39 @@ bool App::Initialize() {
     }
     glfwSetWindowUserPointer(window, this);
     glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
-        auto that = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+        auto that = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
         if (that != nullptr) that->OnMouseMove(xpos, ypos);
     });
     glfwSetMouseButtonCallback(window, [](GLFWwindow* window, int button, int action, int mods) {
-        auto that = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+        auto that = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
         if (that != nullptr) that->OnMouseButton(button, action, mods);
     });
     glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods){
-        auto that = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+        auto that = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
         if (that != nullptr) that->OnArrowsPressed(key, scancode, action, mods);
     });
     InitializeSurface(adapter);
     queue = device.getQueue();
-    InitializeTexture();
-    InitializeBuffers();
-    UpdateViewMatrix();
+    InitializeUniforms();
     InitializeBinding();
+    InitializeMeshes();
+    UpdateViewMatrix();
     InitializePipeline();
     adapter.release();
 
     return true;
 }
-void App::Terminate(){
+void Renderer::Terminate(){
+    for (auto &mesh : meshes){
+        mesh.Terminate();
+    }
     depthTextureView.release();
     depthTexture.destroy();
     depthTexture.release();
     uniformBuffer.release();
-    vertexBuffer.release();
     bindGroup.release();
     bindGroupLayout.release();
+    meshBindGroupLayout.release();
     pipeline.release();
     pipelineLayout.release();
     instance.release();
@@ -142,11 +101,8 @@ void App::Terminate(){
     surface.release();
     device.release();
     queue.release();
-    texture.destroy();
-    texture.release();
-    texView.release();
 }
-void App::MainLoop(){
+void Renderer::MainLoop(){
     glfwPollEvents();
     time = static_cast<float>(glfwGetTime()); // glfwGetTime returns a double
     queue.writeBuffer(uniformBuffer, offsetof(Uniforms, time), &time, sizeof(float));
@@ -186,9 +142,13 @@ void App::MainLoop(){
     // render pass
     RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
     renderPass.setPipeline(pipeline);
-    renderPass.setBindGroup(0, bindGroup, 0, nullptr);
-    renderPass.setVertexBuffer(0, vertexBuffer, 0, vertexData.size()*sizeof(VertexAttributes));
-    renderPass.draw(vertexCount, 1, 0, 0);
+    for (auto &mesh : meshes){
+        //std::vector<BindGroup> bindGroups = {bindGroup, mesh.bindGroup};
+        renderPass.setBindGroup(0, bindGroup, 0, nullptr);
+        renderPass.setBindGroup(1, mesh.bindGroup, 0, nullptr);
+        renderPass.setVertexBuffer(0, mesh.vertexBuffer, 0, mesh.vertexData.size()*sizeof(VertexAttributes));
+        renderPass.draw(mesh.vertexCount, 1, 0, 0);
+    }
     renderPass.end();
     CommandBufferDescriptor cmdBufferDescriptor = {};
     cmdBufferDescriptor.nextInChain = nullptr;
@@ -204,10 +164,10 @@ void App::MainLoop(){
     encoder.release();
     //instance.processEvents();
 }
-bool App::IsRunning(){
+bool Renderer::IsRunning(){
     return !glfwWindowShouldClose(window);
 } 
-RequiredLimits App::GetRequiredLimits(Adapter adapter) const {
+RequiredLimits Renderer::GetRequiredLimits(Adapter adapter) const {
     SupportedLimits supportedLimits;
     adapter.getLimits(&supportedLimits);
     RequiredLimits requiredLimits = Default;
@@ -220,7 +180,7 @@ RequiredLimits App::GetRequiredLimits(Adapter adapter) const {
     
     return requiredLimits;
 }
-std::pair<SurfaceTexture, TextureView> App::GetNextSurfaceViewData() {
+std::pair<SurfaceTexture, TextureView> Renderer::GetNextSurfaceViewData() {
     // next texture
     SurfaceTexture surfaceTexture;
     surface.getCurrentTexture(&surfaceTexture);
@@ -241,7 +201,7 @@ std::pair<SurfaceTexture, TextureView> App::GetNextSurfaceViewData() {
     TextureView targetView = wgpuTextureCreateView(surfaceTexture.texture, &viewDescriptor);
     return { surfaceTexture, targetView };
 }
-void App::InitializeSurface(Adapter adapter){
+void Renderer::InitializeSurface(Adapter adapter){
     surface = glfwGetWGPUSurface(instance, window);
     config = {};
     config.nextInChain = nullptr;
@@ -257,7 +217,62 @@ void App::InitializeSurface(Adapter adapter){
     config.alphaMode = WGPUCompositeAlphaMode_Auto;
     surface.configure(config);
 }
-void App::InitializePipeline(){
+void Renderer::InitializeMeshes() {
+    Mesh mesh(device, queue, meshBindGroupLayout, "monkey.obj");
+    Mesh mesh2(device, queue, meshBindGroupLayout, "krzeslo.obj");
+    meshes = {mesh, mesh2};
+}
+void Renderer::InitializeUniforms() {
+    BufferDescriptor bufferDesc;
+    bufferDesc.label = "uniform data";
+    bufferDesc.size = sizeof(Uniforms);
+    bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
+    bufferDesc.mappedAtCreation = false;
+    uniformBuffer = device.createBuffer(bufferDesc);
+    
+    float t = static_cast<float>(glfwGetTime());
+    queue.writeBuffer(uniformBuffer, offsetof(Uniforms, time), &t, sizeof(float));
+}
+void Renderer::InitializeBinding() {
+    // The uniform time binding
+    BindGroupLayoutEntry uniformBindingLayout(Default);
+    uniformBindingLayout.binding = 0;
+    uniformBindingLayout.visibility = ShaderStage::Vertex;
+    uniformBindingLayout.buffer.type = BufferBindingType::Uniform;
+    uniformBindingLayout.buffer.minBindingSize = sizeof(Uniforms);
+
+    BindGroupLayoutDescriptor bindGroupLayoutDesc{};
+    bindGroupLayoutDesc.entryCount = 1;
+    bindGroupLayoutDesc.entries = &uniformBindingLayout;
+    bindGroupLayout = device.createBindGroupLayout(bindGroupLayoutDesc);
+
+    BindGroupEntry binding;
+    binding.binding = 0;
+    binding.buffer = uniformBuffer;
+    binding.offset = 0;
+    binding.size = sizeof(Uniforms);
+
+    BindGroupDescriptor bindGroupDesc;
+    bindGroupDesc.layout = bindGroupLayout;
+    bindGroupDesc.entryCount = 1;
+    bindGroupDesc.entries = &binding;
+    bindGroup = device.createBindGroup(bindGroupDesc);
+
+    BindGroupLayoutEntry textureBindingLayout(Default);
+    textureBindingLayout.binding = 0;
+    textureBindingLayout.visibility = ShaderStage::Fragment;
+    textureBindingLayout.texture.sampleType = TextureSampleType::Float;
+    textureBindingLayout.texture.viewDimension = TextureViewDimension::_2D;
+    textureBindingLayout.texture.multisampled = 0;
+    
+    // Create a bind group layout
+    bindGroupLayoutDesc.entryCount = 1;
+    bindGroupLayoutDesc.entries = &textureBindingLayout;
+    meshBindGroupLayout = device.createBindGroupLayout(bindGroupLayoutDesc);
+    
+    bindGroupLayouts = {bindGroupLayout, meshBindGroupLayout};
+}
+void Renderer::InitializePipeline(){
     // create shader module
     ShaderModule shaderModule = ResourceManager::loadShaderModule("shaders.wgsl", device);
     if (shaderModule == nullptr) {
@@ -333,8 +348,8 @@ void App::InitializePipeline(){
     pipelineDesc.multisample.alphaToCoverageEnabled = false;
 
     PipelineLayoutDescriptor layoutDesc{};
-    layoutDesc.bindGroupLayoutCount = 1;
-    layoutDesc.bindGroupLayouts = (WGPUBindGroupLayout*)&bindGroupLayout;
+    layoutDesc.bindGroupLayoutCount = bindGroupLayouts.size();
+    layoutDesc.bindGroupLayouts = (WGPUBindGroupLayout*)bindGroupLayouts.data();
     pipelineLayout = device.createPipelineLayout(layoutDesc);
     pipelineDesc.layout = pipelineLayout;
 
@@ -362,79 +377,7 @@ void App::InitializePipeline(){
     depthTextureViewDesc.format = depthTextureFormat;
     depthTextureView = depthTexture.createView(depthTextureViewDesc);
 }
-void App::InitializeBuffers(){
-    ResourceManager::loadGeometryObj(MODELS_DIR/"monkey.obj", vertexData);
-    //SmoothShading();
-    vertexCount = static_cast<int>(vertexData.size());
-
-    BufferDescriptor bufferDesc;
-    bufferDesc.label = "vertex data";
-    bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Vertex;
-    bufferDesc.size = vertexData.size() * sizeof(VertexAttributes);
-    bufferDesc.mappedAtCreation = false;
-    vertexBuffer = device.createBuffer(bufferDesc);
-    queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
-
-    bufferDesc.label = "uniform data";
-    bufferDesc.size = sizeof(Uniforms);
-    bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
-    bufferDesc.mappedAtCreation = false;
-    uniformBuffer = device.createBuffer(bufferDesc);
-    
-    float t = static_cast<float>(glfwGetTime());
-    queue.writeBuffer(uniformBuffer, offsetof(Uniforms, time), &t, sizeof(float));
-
-}
-void App::InitializeTexture(){
-    texView = nullptr;
-    texture = LoadTexture(RESOURCE_DIR/"obszar.jpg", device, &texView);
-}
-void App::InitializeBinding(){
-    std::vector<BindGroupLayoutEntry> bindingLayoutEntries(2, Default);
-    // The texture binding
-    BindGroupLayoutEntry& textureBindingLayout = bindingLayoutEntries[0];
-    textureBindingLayout.binding = 0;
-    textureBindingLayout.visibility = ShaderStage::Fragment;
-    textureBindingLayout.texture.sampleType = TextureSampleType::Float;
-    textureBindingLayout.texture.viewDimension = TextureViewDimension::_2D;
-    textureBindingLayout.texture.multisampled = 0;
-    // The uniform time binding
-    BindGroupLayoutEntry& uniformBindingLayout = bindingLayoutEntries[1];
-    uniformBindingLayout.binding = 1;
-    uniformBindingLayout.visibility = ShaderStage::Vertex;
-    uniformBindingLayout.buffer.type = BufferBindingType::Uniform;
-    uniformBindingLayout.buffer.minBindingSize = sizeof(Uniforms);
-    // Create a bind group layout
-    BindGroupLayoutDescriptor bindGroupLayoutDesc{};
-    bindGroupLayoutDesc.entryCount = 2;
-    bindGroupLayoutDesc.entries = bindingLayoutEntries.data();
-    bindGroupLayout = device.createBindGroupLayout(bindGroupLayoutDesc);
-    // Create a binding
-    std::vector<BindGroupEntry> bindings(2);
-
-    bindings[0].binding = 0;
-    bindings[0].textureView = texView;
-
-    bindings[1].binding = 1;
-    bindings[1].buffer = uniformBuffer;
-    bindings[1].offset = 0;
-    bindings[1].size = sizeof(Uniforms);
-
-    BindGroupDescriptor bindGroupDesc;
-    bindGroupDesc.layout = bindGroupLayout;
-    bindGroupDesc.entryCount = 2;
-    bindGroupDesc.entries = bindings.data();
-    bindGroup = device.createBindGroup(bindGroupDesc);
-}
-void App::SmoothShading(){
-    //std::for_each(vertexData.begin(), vertexData.end(), [](VertexAttributes vertex){
-    for (auto &vertex : vertexData){
-        float average = (vertex.normal[0]+vertex.normal[1]+vertex.normal[2])/3;
-        vertex.normal = {average, average, average};
-    }
-    //});
-}
-void App::UpdateViewMatrix(){
+void Renderer::UpdateViewMatrix(){
     float cx = cos(cameraState.angles.x);
     float sx = sin(cameraState.angles.x);
     float cy = cos(cameraState.angles.y);
@@ -467,7 +410,7 @@ void App::UpdateViewMatrix(){
     glm::vec3 cameraPos = cameraState.position+direction;
     queue.writeBuffer(uniformBuffer, offsetof(Uniforms, cameraPos), &cameraPos, sizeof(Uniforms::cameraPos));
 }
-void App::OnMouseMove(double x, double y){
+void Renderer::OnMouseMove(double x, double y){
     if (drag.active) {
         glm::vec2 currentMouse = glm::vec2(-(float)x, (float)y);
         glm::vec2 delta = (currentMouse - drag.startMouse) * drag.sensitivity;
@@ -476,7 +419,7 @@ void App::OnMouseMove(double x, double y){
         UpdateViewMatrix();
     }
 }
-void App::OnMouseButton(int button, int action, int mods){
+void Renderer::OnMouseButton(int button, int action, int mods){
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         switch(action) {
         case GLFW_PRESS:
@@ -492,7 +435,7 @@ void App::OnMouseButton(int button, int action, int mods){
         }
     }
 }
-void App::OnArrowsPressed(int key, int scancode, int action, int mods){
+void Renderer::OnArrowsPressed(int key, int scancode, int action, int mods){
     float delta=glfwGetTime()-time;
     delta*=5;
     float cx = cos(cameraState.angles.x);

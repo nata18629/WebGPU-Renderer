@@ -2,12 +2,13 @@
 #include <GLFW/glfw3.h>
 #include <webgpu/webgpu.hpp>
 #include <vector>
-#include "ResourceManager.hpp"
+#include "Mesh.hpp"
 #include "Helpers.hpp"
+
 
 using namespace wgpu;
 
-class App{
+class Renderer{
 public:
     bool Initialize();
     void Terminate();
@@ -23,17 +24,16 @@ private:
     Queue queue;
     RenderPipeline pipeline;
     TextureFormat surfaceFormat = TextureFormat::Undefined;
-    Texture texture;
-    TextureView texView;
-    BindGroup bindGroup;
-    BindGroupLayout bindGroupLayout;
     PipelineLayout pipelineLayout;
-    Buffer vertexBuffer;
-    Buffer uniformBuffer;
-    uint32_t vertexCount;
+    std::vector<Mesh> meshes;
     TextureView depthTextureView;
     Texture depthTexture;
-    std::vector<VertexAttributes> vertexData;
+    Buffer uniformBuffer;
+    BindGroup bindGroup;
+    
+    BindGroupLayout bindGroupLayout;
+    BindGroupLayout meshBindGroupLayout;
+    std::vector<BindGroupLayout> bindGroupLayouts;
     CameraState cameraState;
     Uniforms uniforms;
     DragState drag;
@@ -41,12 +41,11 @@ private:
     
     RequiredLimits GetRequiredLimits(Adapter adapter) const;
     void InitializeSurface(Adapter adapter);
-    void InitializeBuffers();
+    void InitializeMeshes();
+    void InitializeUniforms();
+    void InitializeBinding();
     void InitializePipeline();
     std::pair<SurfaceTexture, TextureView> GetNextSurfaceViewData();
-    void InitializeTexture();
-    void InitializeBinding();
-    void SmoothShading();
     void UpdateViewMatrix();
     void OnMouseMove(double x, double y);
     void OnMouseButton(int button, int action, int mods);
