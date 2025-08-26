@@ -1,3 +1,4 @@
+#pragma once
 #include <glm/glm.hpp>
 
 struct Uniforms {
@@ -10,6 +11,27 @@ struct Uniforms {
     glm::vec3 cameraPos;
     float time;
     //float pad[3];
+};
+
+struct ObjectTransforms {
+    glm::mat4x4 Rot= {
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
+    };
+    glm::mat4x4 Scale= {
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
+    };
+    glm::mat4x4 Trans= {
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
+    };
 };
 
 struct CameraState {

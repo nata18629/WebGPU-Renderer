@@ -1,6 +1,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <GLFW/glfw3.h>
+#include <glm/gtc/matrix_transform.hpp>
 #include <webgpu/webgpu.hpp>
 #include <filesystem>
 #include "Mesh.hpp"
@@ -54,17 +55,25 @@ Texture LoadTexture(const fs::path& path, Device device, TextureView* pTextureVi
 }
 
 Mesh::Mesh(Device device, Queue queue, BindGroupLayout bindGroupLayout, const std::filesystem::path& path) {
-    InitializeTexture(device);
-    InitializeBuffers(device, queue, path);
-    InitializeBinding(device, bindGroupLayout);
+    this->device = device;
+    this->queue = queue;
+    InitializeTexture();
+    InitializeBuffers(path);
+    InitializeBinding(bindGroupLayout);
 }
 
-void Mesh::InitializeTexture(Device device) {
+void Mesh::SetTransforms(glm::vec3 scale, glm::vec3 translate, glm::vec3 rotate) {
+    glm::mat4x4 S = glm::scale(glm::mat4x4(1.0), scale);
+    glm::mat4x4 T = glm::translate(glm::mat4x4(1.0), translate);
+    transforms.Rot = T*S;
+}
+
+void Mesh::InitializeTexture() {
     texView = nullptr;
     texture = LoadTexture(RESOURCE_DIR/"obszar.jpg", device, &texView);
 }
 
-void Mesh::InitializeBuffers(Device device, Queue queue, const std::filesystem::path& path) {
+void Mesh::InitializeBuffers(const std::filesystem::path& path) {
     ResourceManager::loadGeometryObj(MODELS_DIR/path, vertexData);
     vertexCount = static_cast<int>(vertexData.size());
 
@@ -75,24 +84,37 @@ void Mesh::InitializeBuffers(Device device, Queue queue, const std::filesystem::
     bufferDesc.mappedAtCreation = false;
     vertexBuffer = device.createBuffer(bufferDesc);
     queue.writeBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
+
+    bufferDesc.label = "object transforms data";
+    bufferDesc.size = sizeof(ObjectTransforms);
+    bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
+    bufferDesc.mappedAtCreation = false;
+    transformsBuffer = device.createBuffer(bufferDesc);
+    queue.writeBuffer(transformsBuffer, 0, &transforms, bufferDesc.size);
 }
 
-void Mesh::InitializeBinding(Device device, BindGroupLayout bindGroupLayout) {
+void Mesh::InitializeBinding(BindGroupLayout bindGroupLayout) {
     // Create a binding
-    BindGroupEntry binding;
+    std::vector<BindGroupEntry> bindings(2);
 
-    binding.binding = 0;
-    binding.textureView = texView;
+    bindings[0].binding = 0;
+    bindings[0].textureView = texView;
+
+    bindings[1].binding = 1;
+    bindings[1].buffer = transformsBuffer;
+    bindings[1].offset = 0;
+    bindings[1].size = sizeof(ObjectTransforms);
 
     BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout = bindGroupLayout;
-    bindGroupDesc.entryCount = 1;
-    bindGroupDesc.entries = &binding;
+    bindGroupDesc.entryCount = bindings.size();
+    bindGroupDesc.entries = bindings.data();
     bindGroup = device.createBindGroup(bindGroupDesc);
 }
 
 void Mesh::Terminate() {
     vertexBuffer.release();
+    transformsBuffer.release();
     bindGroup.release();
     texture.destroy();
     texture.release();

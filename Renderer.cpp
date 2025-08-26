@@ -143,6 +143,7 @@ void Renderer::MainLoop(){
     RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
     renderPass.setPipeline(pipeline);
     for (auto &mesh : meshes){
+        queue.writeBuffer(mesh.transformsBuffer, 0, &mesh.transforms, sizeof(ObjectTransforms));
         //std::vector<BindGroup> bindGroups = {bindGroup, mesh.bindGroup};
         renderPass.setBindGroup(0, bindGroup, 0, nullptr);
         renderPass.setBindGroup(1, mesh.bindGroup, 0, nullptr);
@@ -220,6 +221,7 @@ void Renderer::InitializeSurface(Adapter adapter){
 void Renderer::InitializeMeshes() {
     Mesh mesh(device, queue, meshBindGroupLayout, "monkey.obj");
     Mesh mesh2(device, queue, meshBindGroupLayout, "krzeslo.obj");
+    mesh.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,3.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
     meshes = {mesh, mesh2};
 }
 void Renderer::InitializeUniforms() {
@@ -258,16 +260,22 @@ void Renderer::InitializeBinding() {
     bindGroupDesc.entries = &binding;
     bindGroup = device.createBindGroup(bindGroupDesc);
 
-    BindGroupLayoutEntry textureBindingLayout(Default);
-    textureBindingLayout.binding = 0;
-    textureBindingLayout.visibility = ShaderStage::Fragment;
-    textureBindingLayout.texture.sampleType = TextureSampleType::Float;
-    textureBindingLayout.texture.viewDimension = TextureViewDimension::_2D;
-    textureBindingLayout.texture.multisampled = 0;
+    std::vector<BindGroupLayoutEntry> bindingLayoutEntries(2, Default);
+    //BindGroupLayoutEntry textureBindingLayout(Default);
+    bindingLayoutEntries[0].binding = 0;
+    bindingLayoutEntries[0].visibility = ShaderStage::Fragment;
+    bindingLayoutEntries[0].texture.sampleType = TextureSampleType::Float;
+    bindingLayoutEntries[0].texture.viewDimension = TextureViewDimension::_2D;
+    bindingLayoutEntries[0].texture.multisampled = 0;
     
+    bindingLayoutEntries[1].binding = 1;
+    bindingLayoutEntries[1].visibility = ShaderStage::Vertex;
+    bindingLayoutEntries[1].buffer.type = BufferBindingType::Uniform;
+    bindingLayoutEntries[1].buffer.minBindingSize = sizeof(ObjectTransforms);
+
     // Create a bind group layout
-    bindGroupLayoutDesc.entryCount = 1;
-    bindGroupLayoutDesc.entries = &textureBindingLayout;
+    bindGroupLayoutDesc.entryCount = bindingLayoutEntries.size();
+    bindGroupLayoutDesc.entries = bindingLayoutEntries.data();
     meshBindGroupLayout = device.createBindGroupLayout(bindGroupLayoutDesc);
     
     bindGroupLayouts = {bindGroupLayout, meshBindGroupLayout};
@@ -383,24 +391,9 @@ void Renderer::UpdateViewMatrix(){
     float cy = cos(cameraState.angles.y);
     float sy = sin(cameraState.angles.y);
     glm::vec3 direction = glm::vec3(cx * cy, sy, sx * cy);
-    // glm::mat4 transform(1);
-    // transform = glm::translate(transform, position);
     glm::vec3 change = cameraState.position;
-    //change = glm::normalize(glm::cross(change, glm::vec3(0,1,0)));
-    //transform = glm::translate(transform, glm::vec3(cameraState.position.x, cameraState.position.y, 0.0f));
-//    uniforms.view = glm::lookAt(glm::vec3(cameraState.position.x, cameraState.position.y, 0.0f), position+glm::vec3(cameraState.position.x, cameraState.position.y, 0.0f), glm::vec3(0, 0, 1));
-    //uniforms.view=uniforms.view*transform;
-    //uniforms.view = glm::lookAt(position, glm::vec3(0.0f),glm::vec3(0, 0, 1));
-    
-    
-    // glm::vec3 direction;
-    // direction.x = cos(cameraState.angles.y)*cos(cameraState.angles.x);
-    // direction.y = sin(cameraState.angles.x);
-    // direction.z = sin(cameraState.angles.y)*cos(cameraState.angles.x);
-    // direction = glm::normalize(direction);
     uniforms.view = glm::lookAt(change,change+direction, glm::vec3(0,1,0));
 
-    //uniforms.view=uniforms.view*transform;
     queue.writeBuffer(
         uniformBuffer,
         offsetof(Uniforms, view),
