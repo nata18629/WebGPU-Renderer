@@ -18,8 +18,15 @@ struct Uniforms {
     time: f32
 }
 
-@group(0) @binding(0) var imageTexture: texture_2d<f32>;
-@group(0) @binding(1) var<uniform> uUniforms: Uniforms;
+struct ObjectTransforms {
+    rot: mat4x4f,
+    scale: mat4x4f,
+    trans: mat4x4f
+}
+
+@group(0) @binding(0) var<uniform> uUniforms: Uniforms;
+@group(1) @binding(0) var imageTexture: texture_2d<f32>;
+@group(1) @binding(1) var<uniform> uObjTrans: ObjectTransforms;
 
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
@@ -33,28 +40,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let cos1 = cos(angle);
     let sin1 = sin(angle);
 
-    let rotYZ = transpose(mat4x4f(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, cos1, sin1, 0.0,
-        0.0, -sin1, cos1, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    ));
-
-    let rotXY = transpose(mat4x4f(
-        cos1, sin1, 0.0, 0.0,
-        -sin1, cos1, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-
-    ));
-    let modelT = transpose(mat4x4f(
-        1.0,  0.0, 0.0, 0.5,
-        0.0,  1.0, 0.0, 0.0,
-        0.0,  0.0, 1.0, -0.5,
-        0.0,  0.0, 0.0, 1.0
-    ));
-
-    let model = rotYZ*modelT;
+    let model = uObjTrans.rot;
     
 
     let focalPoint = vec3f(0.0, 0.0, -2.0);
