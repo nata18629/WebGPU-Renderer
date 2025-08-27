@@ -221,8 +221,10 @@ void Renderer::InitializeSurface(Adapter adapter){
 void Renderer::InitializeMeshes() {
     Mesh mesh(device, queue, meshBindGroupLayout, "monkey.obj");
     Mesh mesh2(device, queue, meshBindGroupLayout, "krzeslo.obj");
+    Mesh mesh3(device, queue, meshBindGroupLayout, "obszar_prism.obj");
     mesh.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,3.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
-    meshes = {mesh, mesh2};
+    mesh3.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,6.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
+    meshes = {mesh, mesh2, mesh3};
 }
 void Renderer::InitializeUniforms() {
     BufferDescriptor bufferDesc;
@@ -289,7 +291,7 @@ void Renderer::InitializePipeline(){
     }
     // vertex buffer layout
     VertexBufferLayout vertexBufferLayout;
-    std::vector<VertexAttribute> vertexAttrib(3);
+    std::vector<VertexAttribute> vertexAttrib(4);
     
     vertexAttrib[0].shaderLocation = 0;
     vertexAttrib[0].offset = offsetof(VertexAttributes, position);
@@ -300,6 +302,9 @@ void Renderer::InitializePipeline(){
     vertexAttrib[2].shaderLocation = 2;
     vertexAttrib[2].offset = offsetof(VertexAttributes, color);
     vertexAttrib[2].format = VertexFormat::Float32x3;
+    vertexAttrib[3].shaderLocation = 3;
+    vertexAttrib[3].offset = offsetof(VertexAttributes, texCoords);
+    vertexAttrib[3].format = VertexFormat::Float32x2;
 
     vertexBufferLayout.attributeCount = vertexAttrib.size();
     vertexBufferLayout.attributes = vertexAttrib.data();
