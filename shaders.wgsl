@@ -1,12 +1,13 @@
 struct VertexInput {
     @location(0) position: vec3f,
     @location(1) normal: vec3f,
-    @location(2) color: vec3f
+    @location(2) color: vec3f,
+    @location(3) uv: vec2f
 };
 
 struct VertexOutput {
     @builtin(position) position: vec4f,
-    @location(0) uv: vec3f,
+    @location(0) uv: vec2f,
     @location(1) normal: vec3f,
     @location(2) color: vec3f,
     @location(3) viewDirection: vec3f
@@ -70,24 +71,24 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     
     let worldPosition = model * vec4f(in.position, 1.0);
     let view = uUniforms.cameraPos - worldPosition.xyz;
-
-    let uv = -in.position.xyz*0.6+vec3f(0.9,0.8,0.0);
+    let position = P*viewT*uUniforms.view*worldPosition;
+    let uv = -in.uv+vec2(1.0,1.0);
     //let uv = -position*0.8+vec3f(1.0,0.9,0.0);
-    return VertexOutput(P*viewT*uUniforms.view*worldPosition,
+    return VertexOutput(position,
     uv, in.normal, in.color, view);
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-    //let texelCoords = vec2i(in.uv.xy * vec2f(textureDimensions(imageTexture)));
-    //let color = textureLoad(imageTexture, texelCoords, 0).rgb;
+    let texCoords = vec2i(in.uv * vec2f(textureDimensions(imageTexture)));
+    var color = textureLoad(imageTexture, texCoords, 0).rgb;
     let lightDirection1 = vec3f(0.5, -0.5, 0.1);
     let lightDirection2 = vec3f(0.2, 0.4, 0.3);
-    let L = vec3f(0.5, -0.9, 0.1);
+    let L = vec3f(0.9, -0.9, 0.1);
     
     //let shading1 = max(0.0, dot(lightDirection1, in.normal));
     //let shading2 = max(0.0, dot(lightDirection2, in.normal));
-    let diffuse = max(0.0, dot(L, in.normal))*in.color;
+    let diffuse = max(0.0, dot(L, in.normal));
 
     var specular = 0.0;
     
@@ -99,6 +100,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     specular = pow(RoV, hardness);
     //shading += specular;
     let ambient = 0.1;
-    let color = specular+diffuse+ambient;
+    color *= specular+diffuse+ambient;
+
     return vec4f(color,1.0);
 }

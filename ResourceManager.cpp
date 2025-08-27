@@ -73,6 +73,11 @@ bool ResourceManager::loadGeometryObj(const fs::path& path, std::vector<VertexAt
             attrib.colors[3 * idx.vertex_index + 1],
             attrib.colors[3 * idx.vertex_index + 2]
         };
+
+        vertexData[i].texCoords = {
+            attrib.texcoords[2 * idx.texcoord_index + 0],
+            attrib.texcoords[2 * idx.texcoord_index + 1]
+        };
     }
 
     return true;
