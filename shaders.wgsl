@@ -72,7 +72,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let worldPosition = model * vec4f(in.position, 1.0);
     let view = uUniforms.cameraPos - worldPosition.xyz;
     let position = P*viewT*uUniforms.view*worldPosition;
-    let uv = -in.uv+vec2(1.0,1.0);
+    let uv = in.uv;
     //let uv = -position*0.8+vec3f(1.0,0.9,0.0);
     return VertexOutput(position,
     uv, in.normal, in.color, view);

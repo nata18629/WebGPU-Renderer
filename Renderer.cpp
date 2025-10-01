@@ -219,12 +219,13 @@ void Renderer::InitializeSurface(Adapter adapter){
     surface.configure(config);
 }
 void Renderer::InitializeMeshes() {
-    Mesh mesh(device, queue, meshBindGroupLayout, "monkey.obj");
-    Mesh mesh2(device, queue, meshBindGroupLayout, "krzeslo.obj");
-    Mesh mesh3(device, queue, meshBindGroupLayout, "obszar_prism.obj");
+    Mesh mesh(device, queue, meshBindGroupLayout, "asteroid.obj");
+    //Mesh mesh2(device, queue, meshBindGroupLayout, "krzeslo.obj");
+    //Mesh mesh3(device, queue, meshBindGroupLayout, "obszar_prism.obj");
     mesh.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,3.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
-    mesh3.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,6.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
-    meshes = {mesh, mesh2, mesh3};
+    //mesh3.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,6.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
+    //meshes = {mesh, mesh2, mesh3};
+    meshes = {mesh};
 }
 void Renderer::InitializeUniforms() {
     BufferDescriptor bufferDesc;

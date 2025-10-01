@@ -70,7 +70,7 @@ void Mesh::SetTransforms(glm::vec3 scale, glm::vec3 translate, glm::vec3 rotate)
 
 void Mesh::InitializeTexture() {
     texView = nullptr;
-    texture = LoadTexture(RESOURCE_DIR/"obszar.jpg", device, &texView);
+    texture = LoadTexture(RESOURCE_DIR/"asteroid.png", device, &texView);
 }
 
 void Mesh::InitializeBuffers(const std::filesystem::path& path) {
