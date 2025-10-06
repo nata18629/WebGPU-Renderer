@@ -190,7 +190,7 @@ void Gpu::InitializeSurface(Adapter adapter){
     surface.configure(config);
 }
 void Gpu::InitializeMeshes() {
-    Mesh mesh(device, queue, meshBindGroupLayout, "asteroid.obj");
+    Mesh mesh(device, queue, meshBindGroupLayout, "assets/textures/asteroid.obj");
     //Mesh mesh2(device, queue, meshBindGroupLayout, "krzeslo.obj");
     //Mesh mesh3(device, queue, meshBindGroupLayout, "obszar_prism.obj");
     mesh.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,3.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
@@ -256,7 +256,8 @@ void Gpu::InitializeBinding() {
 }
 void Gpu::InitializePipeline(){
     // create shader module
-    ShaderModule shaderModule = ResourceManager::loadShaderModule("shaders.wgsl", device);
+    ShaderModule shaderModule = ResourceManager::loadShaderModule("src/shaders.wgsl", device);
+    std::cout<<fs::current_path();
     if (shaderModule == nullptr) {
         std::cerr << "Could not load shader!" << std::endl;
         exit(1);

@@ -8,8 +8,8 @@
 
 namespace fs = std::filesystem;
 
-auto RESOURCE_DIR = fs::path{"textures"};
-auto MODELS_DIR = fs::path{"models"};
+auto RESOURCE_DIR = fs::path{"assets/textures"};
+auto MODELS_DIR = fs::path{"assets/models"};
 
 Texture LoadTexture(const fs::path& path, Device device, TextureView* pTextureView){
     // create texture

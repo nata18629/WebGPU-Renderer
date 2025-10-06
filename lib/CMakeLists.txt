@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.0...3.25)
+add_subdirectory(glfw)
+add_subdirectory(glfw3webgpu)
+add_subdirectory(glm-1.0.1)
+add_subdirectory(webgpu)

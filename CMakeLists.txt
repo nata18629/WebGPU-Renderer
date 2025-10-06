@@ -5,15 +5,9 @@ project(
     LANGUAGES CXX C # programming languages used by the project
 )
 
-add_executable(App main.cpp Renderer.cpp Renderer.hpp
-    ResourceManager.cpp ResourceManager.hpp tiny_obj_loader.h
-    Helpers.hpp Mesh.cpp Mesh.hpp MainWindow.hpp MainWindow.cpp Gpu.hpp Gpu.cpp)
-add_subdirectory(glfw)
-add_subdirectory(glfw3webgpu)
-add_subdirectory(webgpu)
-find_package(glm CONFIG REQUIRED)
-target_include_directories(App PRIVATE stb_image/)
-target_link_libraries(App PRIVATE glfw webgpu glfw3webgpu glm::glm)
+add_subdirectory(lib)
+add_subdirectory(src)
+
 set_target_properties(App PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
