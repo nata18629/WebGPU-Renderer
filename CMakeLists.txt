@@ -7,7 +7,7 @@ project(
 
 add_executable(App main.cpp Renderer.cpp Renderer.hpp
     ResourceManager.cpp ResourceManager.hpp tiny_obj_loader.h
-    Helpers.hpp Mesh.cpp Mesh.hpp)
+    Helpers.hpp Mesh.cpp Mesh.hpp MainWindow.hpp MainWindow.cpp Gpu.hpp Gpu.cpp)
 add_subdirectory(glfw)
 add_subdirectory(glfw3webgpu)
 add_subdirectory(webgpu)
