@@ -78,7 +78,7 @@ void Gpu::Terminate(){
 }
 void Gpu::MainLoop(){
     glfwPollEvents();
-    time = static_cast<float>(glfwGetTime()); // glfwGetTime returns a double
+    time = static_cast<float>(glfwGetTime());
     queue.writeBuffer(uniformBuffer, offsetof(Uniforms, time), &time, sizeof(float));
     auto [ surfaceTexture, targetView ] = GetNextSurfaceViewData();
     if (!targetView) return;
@@ -234,7 +234,7 @@ void Gpu::InitializeBinding() {
     bindGroupDesc.entries = &binding;
     bindGroup = device.createBindGroup(bindGroupDesc);
 
-    std::vector<BindGroupLayoutEntry> bindingLayoutEntries(2, Default);
+    std::vector<BindGroupLayoutEntry> bindingLayoutEntries(3, Default);
     //BindGroupLayoutEntry textureBindingLayout(Default);
     bindingLayoutEntries[0].binding = 0;
     bindingLayoutEntries[0].visibility = ShaderStage::Fragment;
@@ -246,6 +246,12 @@ void Gpu::InitializeBinding() {
     bindingLayoutEntries[1].visibility = ShaderStage::Vertex;
     bindingLayoutEntries[1].buffer.type = BufferBindingType::Uniform;
     bindingLayoutEntries[1].buffer.minBindingSize = sizeof(ObjectTransforms);
+
+    bindingLayoutEntries[2].binding = 2;
+    bindingLayoutEntries[2].visibility = ShaderStage::Fragment;
+    bindingLayoutEntries[2].texture.sampleType = TextureSampleType::Float;
+    bindingLayoutEntries[2].texture.viewDimension = TextureViewDimension::_2D;
+    bindingLayoutEntries[2].texture.multisampled = 0;
 
     // Create a bind group layout
     bindGroupLayoutDesc.entryCount = bindingLayoutEntries.size();

@@ -8,8 +8,8 @@ using namespace wgpu;
 class Mesh{
 public:
     BindGroup bindGroup;
-    Texture texture;
-    TextureView texView;
+    Texture texture, normalTexture;
+    TextureView texView, normalTexView;
     Buffer vertexBuffer;
     uint32_t vertexCount;
     std::vector<VertexAttributes> vertexData;

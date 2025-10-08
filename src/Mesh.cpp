@@ -70,7 +70,10 @@ void Mesh::SetTransforms(glm::vec3 scale, glm::vec3 translate, glm::vec3 rotate)
 
 void Mesh::InitializeTexture() {
     texView = nullptr;
+    normalTexView = nullptr;
     texture = LoadTexture(RESOURCE_DIR/"asteroid.png", device, &texView);
+    normalTexture = LoadTexture(RESOURCE_DIR/"asteroid_normal.png", device, &normalTexView);
+    //TODO: change so that texture path won't be hardcoded
 }
 
 void Mesh::InitializeBuffers(const std::filesystem::path& path) {
@@ -95,7 +98,7 @@ void Mesh::InitializeBuffers(const std::filesystem::path& path) {
 
 void Mesh::InitializeBinding(BindGroupLayout bindGroupLayout) {
     // Create a binding
-    std::vector<BindGroupEntry> bindings(2);
+    std::vector<BindGroupEntry> bindings(3);
 
     bindings[0].binding = 0;
     bindings[0].textureView = texView;
@@ -104,6 +107,9 @@ void Mesh::InitializeBinding(BindGroupLayout bindGroupLayout) {
     bindings[1].buffer = transformsBuffer;
     bindings[1].offset = 0;
     bindings[1].size = sizeof(ObjectTransforms);
+
+    bindings[2].binding = 2;
+    bindings[2].textureView = normalTexView;
 
     BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout = bindGroupLayout;

@@ -28,6 +28,7 @@ struct ObjectTransforms {
 @group(0) @binding(0) var<uniform> uUniforms: Uniforms;
 @group(1) @binding(0) var imageTexture: texture_2d<f32>;
 @group(1) @binding(1) var<uniform> uObjTrans: ObjectTransforms;
+@group(1) @binding(2) var normalTexture: texture_2d<f32>;
 
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
@@ -43,7 +44,6 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     let model = uObjTrans.rot;
     
-
     let focalPoint = vec3f(0.0, 0.0, -2.0);
     let viewT = transpose(mat4x4f(
     1.0,  0.0, 0.0, -focalPoint.x,
@@ -51,12 +51,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     0.0,  0.0, 1.0, -focalPoint.z,
     0.0,  0.0, 0.0,     1.0
     ));
-    //pos = pos - focalPoint;
 
-    // We divide by the Z coord
     let focalLength = 1.2;
-    // pos.x /= pos.z/focalLength;
-    // pos.y /= pos.z/focalLength;
 
     let near = 0.01;
     let far = 100.0;
@@ -73,7 +69,6 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let view = uUniforms.cameraPos - worldPosition.xyz;
     let position = P*viewT*uUniforms.view*worldPosition;
     let uv = in.uv;
-    //let uv = -position*0.8+vec3f(1.0,0.9,0.0);
     return VertexOutput(position,
     uv, in.normal, in.color, view);
 }
@@ -86,19 +81,18 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     let lightDirection2 = vec3f(0.2, 0.4, 0.3);
     let L = vec3f(0.9, -0.9, 0.1);
     
-    //let shading1 = max(0.0, dot(lightDirection1, in.normal));
-    //let shading2 = max(0.0, dot(lightDirection2, in.normal));
     let diffuse = max(0.0, dot(L, in.normal));
 
     var specular = 0.0;
     
-    let N = in.normal;
+    //let N = in.normal;
+    let encodedN = textureLoad(normalTexture, texCoords, 0).rgb;
+    let N = normalize(encodedN - 0.5);
     let R = reflect(-L, N);
     let V = normalize(in.viewDirection);
     let RoV = max(0.0, dot(R, V));
     let hardness = 4.0;
     specular = pow(RoV, hardness);
-    //shading += specular;
     let ambient = 0.1;
     color *= specular+diffuse+ambient;
 
