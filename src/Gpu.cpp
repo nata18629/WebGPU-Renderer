@@ -49,6 +49,7 @@ bool Gpu::Initialize() {
     InitializeSurface(adapter);
     queue = device.getQueue();
     InitializeUniforms();
+    InitializeSampler();
     InitializeBinding();
     InitializeMeshes();
     UpdateViewMatrix();
@@ -209,29 +210,50 @@ void Gpu::InitializeUniforms() {
     float t = static_cast<float>(glfwGetTime());
     queue.writeBuffer(uniformBuffer, offsetof(Uniforms, time), &t, sizeof(float));
 }
+void Gpu::InitializeSampler() {
+    SamplerDescriptor samplerDesc;
+    samplerDesc.addressModeU = AddressMode::ClampToEdge;
+    samplerDesc.addressModeV = AddressMode::ClampToEdge;
+    samplerDesc.addressModeW = AddressMode::ClampToEdge;
+    samplerDesc.magFilter = FilterMode::Linear;
+    samplerDesc.minFilter = FilterMode::Linear;
+    samplerDesc.mipmapFilter = MipmapFilterMode::Linear;
+    samplerDesc.lodMinClamp = 0.0f;
+    samplerDesc.lodMaxClamp = 1.0f;
+    samplerDesc.compare = CompareFunction::Undefined;
+    samplerDesc.maxAnisotropy = 1;
+    sampler = device.createSampler(samplerDesc);
+}
 void Gpu::InitializeBinding() {
     // The uniform time binding
-    BindGroupLayoutEntry uniformBindingLayout(Default);
-    uniformBindingLayout.binding = 0;
-    uniformBindingLayout.visibility = ShaderStage::Vertex;
-    uniformBindingLayout.buffer.type = BufferBindingType::Uniform;
-    uniformBindingLayout.buffer.minBindingSize = sizeof(Uniforms);
+    std::vector<BindGroupLayoutEntry> uniformBindingLayout(2, Default);
+    uniformBindingLayout[0].binding = 0;
+    uniformBindingLayout[0].visibility = ShaderStage::Vertex;
+    uniformBindingLayout[0].buffer.type = BufferBindingType::Uniform;
+    uniformBindingLayout[0].buffer.minBindingSize = sizeof(Uniforms);
+    // sampler binding
+    uniformBindingLayout[1].binding = 1;
+    uniformBindingLayout[1].visibility = ShaderStage::Fragment;
+    uniformBindingLayout[1].sampler.type = SamplerBindingType::Filtering;
 
     BindGroupLayoutDescriptor bindGroupLayoutDesc{};
-    bindGroupLayoutDesc.entryCount = 1;
-    bindGroupLayoutDesc.entries = &uniformBindingLayout;
+    bindGroupLayoutDesc.entryCount = uniformBindingLayout.size();
+    bindGroupLayoutDesc.entries = uniformBindingLayout.data();
     bindGroupLayout = device.createBindGroupLayout(bindGroupLayoutDesc);
 
-    BindGroupEntry binding;
-    binding.binding = 0;
-    binding.buffer = uniformBuffer;
-    binding.offset = 0;
-    binding.size = sizeof(Uniforms);
+    std::vector<BindGroupEntry> bindings(2);
+    bindings[0].binding = 0;
+    bindings[0].buffer = uniformBuffer;
+    bindings[0].offset = 0;
+    bindings[0].size = sizeof(Uniforms);
+    
+    bindings[1].binding = 1;
+    bindings[1].sampler = sampler;
 
     BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout = bindGroupLayout;
-    bindGroupDesc.entryCount = 1;
-    bindGroupDesc.entries = &binding;
+    bindGroupDesc.entryCount = bindings.size();
+    bindGroupDesc.entries = bindings.data();
     bindGroup = device.createBindGroup(bindGroupDesc);
 
     std::vector<BindGroupLayoutEntry> bindingLayoutEntries(3, Default);

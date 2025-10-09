@@ -26,6 +26,7 @@ struct ObjectTransforms {
 }
 
 @group(0) @binding(0) var<uniform> uUniforms: Uniforms;
+@group(0) @binding(1) var textureSampler: sampler;
 @group(1) @binding(0) var imageTexture: texture_2d<f32>;
 @group(1) @binding(1) var<uniform> uObjTrans: ObjectTransforms;
 @group(1) @binding(2) var normalTexture: texture_2d<f32>;
@@ -75,8 +76,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-    let texCoords = vec2i(in.uv * vec2f(textureDimensions(imageTexture)));
-    var color = textureLoad(imageTexture, texCoords, 0).rgb;
+    //let texCoords = vec2i(in.uv * vec2f(textureDimensions(imageTexture)));
+    var color = textureSample(imageTexture, textureSampler, in.uv).rgb;
     let lightDirection1 = vec3f(0.5, -0.5, 0.1);
     let lightDirection2 = vec3f(0.2, 0.4, 0.3);
     let L = vec3f(0.9, -0.9, 0.1);
@@ -86,14 +87,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     var specular = 0.0;
     
     //let N = in.normal;
-    let encodedN = textureLoad(normalTexture, texCoords, 0).rgb;
+    let encodedN = textureSample(normalTexture, textureSampler, in.uv).rgb;
     let N = normalize(encodedN - 0.5);
     let R = reflect(-L, N);
     let V = normalize(in.viewDirection);
     let RoV = max(0.0, dot(R, V));
-    let hardness = 4.0;
+    let hardness = 3.0;
     specular = pow(RoV, hardness);
-    let ambient = 0.1;
+    let ambient = 0.05;
     color *= specular+diffuse+ambient;
 
     return vec4f(color,1.0);

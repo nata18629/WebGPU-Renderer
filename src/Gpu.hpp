@@ -32,6 +32,7 @@ PipelineLayout pipelineLayout;
 std::vector<Mesh> meshes;
 TextureView depthTextureView;
 Texture depthTexture;
+Sampler sampler;
 Buffer uniformBuffer;
 BindGroup bindGroup;
 
@@ -44,6 +45,7 @@ Uniforms uniforms;
 RequiredLimits GetRequiredLimits(Adapter adapter) const;
 void InitializeSurface(Adapter adapter);
 void InitializeMeshes();
+void InitializeSampler();
 void InitializeUniforms();
 void InitializeBinding();
 void InitializePipeline();
