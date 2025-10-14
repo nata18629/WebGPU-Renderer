@@ -192,12 +192,13 @@ void Gpu::InitializeSurface(Adapter adapter){
 }
 void Gpu::InitializeMeshes() {
     Mesh mesh(device, queue, meshBindGroupLayout, "asteroid.obj");
-    //Mesh mesh2(device, queue, meshBindGroupLayout, "krzeslo.obj");
+    Mesh mesh2(device, queue, meshBindGroupLayout, "krzeslo.obj", &mesh);
+    mesh.AddChild(&mesh2);
     //Mesh mesh3(device, queue, meshBindGroupLayout, "obszar_prism.obj");
     mesh.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,3.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
     //mesh3.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,6.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
     //meshes = {mesh, mesh2, mesh3};
-    meshes = {mesh};
+    meshes = {mesh, mesh2};
 }
 void Gpu::InitializeUniforms() {
     BufferDescriptor bufferDesc;

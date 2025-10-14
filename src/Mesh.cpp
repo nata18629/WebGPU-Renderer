@@ -54,9 +54,10 @@ Texture LoadTexture(const fs::path& path, Device device, TextureView* pTextureVi
     return texture;
 }
 
-Mesh::Mesh(Device device, Queue queue, BindGroupLayout bindGroupLayout, const std::filesystem::path& path) {
+Mesh::Mesh(Device device, Queue queue, BindGroupLayout bindGroupLayout, const std::filesystem::path& path, Mesh* parent) {
     this->device = device;
     this->queue = queue;
+    this->parent = parent;
     InitializeTexture();
     InitializeBuffers(path);
     InitializeBinding(bindGroupLayout);
@@ -66,6 +67,18 @@ void Mesh::SetTransforms(glm::vec3 scale, glm::vec3 translate, glm::vec3 rotate)
     glm::mat4x4 S = glm::scale(glm::mat4x4(1.0), scale);
     glm::mat4x4 T = glm::translate(glm::mat4x4(1.0), translate);
     transforms.Rot = T*S;
+}
+
+Mesh* Mesh::GetParent() {
+    return parent;
+}
+
+std::vector<Mesh*> Mesh::GetChildren() {
+    return children;
+}
+
+void Mesh::AddChild(Mesh* child) {
+    children.push_back(child);
 }
 
 void Mesh::InitializeTexture() {

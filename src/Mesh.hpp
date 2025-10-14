@@ -16,12 +16,17 @@ public:
     ObjectTransforms transforms;
     Buffer transformsBuffer;
 
-    Mesh(Device device, Queue queue, BindGroupLayout bindGroupLayout, const std::filesystem::path& path);
+    Mesh(Device device, Queue queue, BindGroupLayout bindGroupLayout, const std::filesystem::path& path, Mesh* parent=nullptr);
     void SetTransforms(glm::vec3 scale, glm::vec3 translate, glm::vec3 rotate);
+    Mesh* GetParent();
+    std::vector<Mesh*> GetChildren();
+    void AddChild(Mesh* child);
     void Terminate();
 private:
     Queue queue;
     Device device;
+    Mesh* parent;
+    std::vector<Mesh*> children;
     void InitializeTexture();
     void InitializeBuffers(const std::filesystem::path& path);
     void InitializeBinding(BindGroupLayout bindGroupLayout);
