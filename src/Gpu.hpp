@@ -3,6 +3,7 @@
 #include <vector>
 #include "Mesh.hpp"
 #include "Helpers.hpp"
+#include "Camera.hpp"
 
 using namespace wgpu;
 
@@ -17,7 +18,7 @@ void UpdateViewMatrix();
 void SetWindow(MainWindow* window);
 
 float time=0;
-CameraState cameraState;
+Camera* camera;
 
 private:
 Instance instance;
@@ -41,7 +42,6 @@ BindGroupLayout meshBindGroupLayout;
 std::vector<BindGroupLayout> bindGroupLayouts;
 Uniforms uniforms;
 
-
 RequiredLimits GetRequiredLimits(Adapter adapter) const;
 void InitializeSurface(Adapter adapter);
 void InitializeMeshes();
@@ -49,5 +49,6 @@ void InitializeSampler();
 void InitializeUniforms();
 void InitializeBinding();
 void InitializePipeline();
+void SetCallbacks();
 std::pair<SurfaceTexture, TextureView> GetNextSurfaceViewData();
 };

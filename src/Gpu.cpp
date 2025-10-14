@@ -54,8 +54,8 @@ bool Gpu::Initialize() {
     InitializeMeshes();
     UpdateViewMatrix();
     InitializePipeline();
+    SetCallbacks();
     adapter.release();
-
     return true;
 }
 void Gpu::Terminate(){
@@ -391,23 +391,30 @@ void Gpu::InitializePipeline(){
     depthTextureViewDesc.format = depthTextureFormat;
     depthTextureView = depthTexture.createView(depthTextureViewDesc);
 }
-
+void Gpu::SetCallbacks(){
+    GLFWwindow* window = this->window->GetWindow();
+    glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
+        auto that = reinterpret_cast<MainWindow*>(glfwGetWindowUserPointer(window));
+        if (that != nullptr) that->OnMouseMove(xpos, ypos);
+    });
+    glfwSetMouseButtonCallback(window, [](GLFWwindow* window, int button, int action, int mods) {
+        auto that = reinterpret_cast<MainWindow*>(glfwGetWindowUserPointer(window));
+        if (that != nullptr) that->OnMouseButton(button, action, mods);
+    });
+    glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods){
+        auto that = reinterpret_cast<MainWindow*>(glfwGetWindowUserPointer(window));
+        if (that != nullptr) that->OnArrowsPressed(key, scancode, action, mods);
+    });
+}
 void Gpu::UpdateViewMatrix(){
-    float cx = cos(cameraState.angles.x);
-    float sx = sin(cameraState.angles.x);
-    float cy = cos(cameraState.angles.y);
-    float sy = sin(cameraState.angles.y);
-    glm::vec3 direction = glm::vec3(cx * cy, sy, sx * cy);
-    glm::vec3 change = cameraState.position;
-    uniforms.view = glm::lookAt(change,change+direction, glm::vec3(0,1,0));
-
+    uniforms.view = camera->view;
     queue.writeBuffer(
         uniformBuffer,
         offsetof(Uniforms, view),
         &uniforms.view,
         sizeof(Uniforms::view)
     );
-    glm::vec3 cameraPos = cameraState.position+direction;
+    glm::vec3 cameraPos = camera->cameraState.position;
     queue.writeBuffer(uniformBuffer, offsetof(Uniforms, cameraPos), &cameraPos, sizeof(Uniforms::cameraPos));
 }
 

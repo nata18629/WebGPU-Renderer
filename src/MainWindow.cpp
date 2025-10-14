@@ -1,15 +1,19 @@
 #include "MainWindow.hpp"
+#include "Camera.hpp"
 #include "Gpu.hpp"
 #include <iostream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/common.hpp>
 
-constexpr float PI = 3.141592653589793f;
-
+#define LEFT 0
+#define RIGHT 1
+#define UP 2
+#define DOWN 3
 
 MainWindow::MainWindow(Gpu* gpu){
     this->gpu = gpu;
+    this->camera = new Camera;
 }
 void MainWindow::Initialize(){
     if (!glfwInit()) {
@@ -23,18 +27,6 @@ void MainWindow::Initialize(){
         return;
     }
     glfwSetWindowUserPointer(window, this);
-    glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
-        auto that = reinterpret_cast<MainWindow*>(glfwGetWindowUserPointer(window));
-        if (that != nullptr) that->OnMouseMove(xpos, ypos);
-    });
-    glfwSetMouseButtonCallback(window, [](GLFWwindow* window, int button, int action, int mods) {
-        auto that = reinterpret_cast<MainWindow*>(glfwGetWindowUserPointer(window));
-        if (that != nullptr) that->OnMouseButton(button, action, mods);
-    });
-    glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods){
-        auto that = reinterpret_cast<MainWindow*>(glfwGetWindowUserPointer(window));
-        if (that != nullptr) that->OnArrowsPressed(key, scancode, action, mods);
-    });
 }
 bool MainWindow::IsRunning(){
     return !glfwWindowShouldClose(window);
@@ -47,50 +39,41 @@ GLFWwindow* MainWindow::GetWindow(){
     return window;
 }
 void MainWindow::OnMouseMove(double x, double y){
-    if (drag.active) {
-        glm::vec2 currentMouse = glm::vec2(-(float)x, (float)y);
-        glm::vec2 delta = (currentMouse - drag.startMouse) * drag.sensitivity;
-        gpu->cameraState.angles = drag.startCameraState.angles + delta;
-        gpu->cameraState.angles.y = glm::clamp(gpu->cameraState.angles.y, -PI / 2.0f + 1e-5f, PI / 2.0f - 1e-5f);
+    if (camera->drag.active) {
+        camera->OnMouseMove(x,y);
         gpu->UpdateViewMatrix();
     }
 }
 void MainWindow::OnMouseButton(int button, int action, int mods){
-    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+    if (button == GLFW_MOUSE_BUTTON_LEFT||GLFW_MOUSE_BUTTON_RIGHT){
         switch(action) {
         case GLFW_PRESS:
-            drag.active = true;
+            camera->drag.mouseButton = GLFW_MOUSE_BUTTON_LEFT ? LEFT : RIGHT;
+            camera->drag.active = true;
             double xpos, ypos;
             glfwGetCursorPos(window, &xpos, &ypos);
-            drag.startMouse = glm::vec2(-(float)xpos, (float)ypos);
-            drag.startCameraState = gpu->cameraState;
+            camera->drag.startMouse = glm::vec2(-(float)xpos, (float)ypos);
+            camera->drag.startCameraState = camera->cameraState;
             break;
         case GLFW_RELEASE:
-            drag.active = false;
+            camera->drag.active = false;
             break;
         }
     }
 }
 void MainWindow::OnArrowsPressed(int key, int scancode, int action, int mods){
-    float delta=glfwGetTime()-gpu->time;
-    delta*=5;
-    float cx = cos(gpu->cameraState.angles.x);
-    float sx = sin(gpu->cameraState.angles.x);
-    float cy = cos(gpu->cameraState.angles.y);
-    float sy = sin(gpu->cameraState.angles.y);
-    glm::vec3 direction = glm::vec3(cx * cy, sy, sx * cy);
-    direction = glm::normalize(direction);
+    camera->delta=glfwGetTime()-gpu->time;
     if(key==GLFW_KEY_LEFT || key==GLFW_KEY_A){
-        gpu->cameraState.position -= glm::normalize(glm::cross(direction,glm::vec3(0,1,0)))*delta;
+        camera->OnArrowsPressed(LEFT);
     }
     else if(key==GLFW_KEY_RIGHT || key==GLFW_KEY_D){
-        gpu->cameraState.position += glm::normalize(glm::cross(direction,glm::vec3(0,1,0)))*delta;
+        camera->OnArrowsPressed(RIGHT);
     }
     if(key==GLFW_KEY_UP || key==GLFW_KEY_W){
-        gpu->cameraState.position -= direction*delta;
+        camera->OnArrowsPressed(UP);
     }
     else if(key==GLFW_KEY_DOWN || key==GLFW_KEY_S){
-        gpu->cameraState.position += direction*delta;
+        camera->OnArrowsPressed(DOWN);
     }
     gpu->UpdateViewMatrix();
 }

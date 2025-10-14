@@ -6,6 +6,7 @@ void Renderer::Run() {
     MainWindow window = MainWindow(&gpu);
     window.Initialize();
     gpu.SetWindow(&window);
+    gpu.camera = window.camera;
     gpu.Initialize();
     while (window.IsRunning()) {
         gpu.MainLoop();

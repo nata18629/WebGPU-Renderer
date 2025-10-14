@@ -39,12 +39,3 @@ struct CameraState {
     float zoom;
     glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);  
 };
-
-struct DragState {
-    bool active = false;
-    glm::vec2 startMouse;
-    CameraState startCameraState;
-
-    float sensitivity = 0.01f;
-    float scrollSensitivity = 0.1f;
-};
