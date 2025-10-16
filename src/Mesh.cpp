@@ -4,6 +4,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <webgpu/webgpu.hpp>
 #include <filesystem>
+#include <iostream>
 #include "Mesh.hpp"
 
 namespace fs = std::filesystem;
@@ -64,9 +65,29 @@ Mesh::Mesh(Device device, Queue queue, BindGroupLayout bindGroupLayout, const st
 }
 
 void Mesh::SetTransforms(glm::vec3 scale, glm::vec3 translate, glm::vec3 rotate) {
-    glm::mat4x4 S = glm::scale(glm::mat4x4(1.0), scale);
-    glm::mat4x4 T = glm::translate(glm::mat4x4(1.0), translate);
-    transforms.Rot = T*S;
+    glm::mat4x4 S=glm::scale(glm::mat4x4(1.0), scale);
+    glm::mat4x4 T=glm::translate(glm::mat4x4(1.0), translate);
+    localTransforms.Scale=S;
+    localTransforms.Trans=T;
+    localTransforms.Rot=localTransforms.Trans*localTransforms.Scale;
+    UpdateTransforms();
+}
+
+void Mesh::UpdateTransforms() {
+    if(parent!=nullptr){
+    globalTransforms.Scale=parent->globalTransforms.Scale*localTransforms.Scale;
+    globalTransforms.Trans=parent->globalTransforms.Trans*localTransforms.Trans;
+    }
+    else{
+    globalTransforms.Scale=localTransforms.Scale;
+    globalTransforms.Trans=localTransforms.Trans;
+    }
+    globalTransforms.Rot = globalTransforms.Trans*globalTransforms.Scale;
+    std::cout<<children.empty()<<std::endl;
+    if(!children.empty()){
+    for(auto child:children){
+        child->UpdateTransforms();
+    }}
 }
 
 Mesh* Mesh::GetParent() {
@@ -106,7 +127,7 @@ void Mesh::InitializeBuffers(const std::filesystem::path& path) {
     bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
     bufferDesc.mappedAtCreation = false;
     transformsBuffer = device.createBuffer(bufferDesc);
-    queue.writeBuffer(transformsBuffer, 0, &transforms, bufferDesc.size);
+    queue.writeBuffer(transformsBuffer, 0, &globalTransforms, bufferDesc.size);
 }
 
 void Mesh::InitializeBinding(BindGroupLayout bindGroupLayout) {

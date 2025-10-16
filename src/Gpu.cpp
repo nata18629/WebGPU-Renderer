@@ -118,7 +118,8 @@ void Gpu::MainLoop(){
     RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
     renderPass.setPipeline(pipeline);
     for (auto &mesh : meshes){
-        queue.writeBuffer(mesh.transformsBuffer, 0, &mesh.transforms, sizeof(ObjectTransforms));
+        //std::cout<<"RenderMeshes"<<std::endl;
+        queue.writeBuffer(mesh.transformsBuffer, 0, &mesh.globalTransforms, sizeof(ObjectTransforms));
         //std::vector<BindGroup> bindGroups = {bindGroup, mesh.bindGroup};
         renderPass.setBindGroup(0, bindGroup, 0, nullptr);
         renderPass.setBindGroup(1, mesh.bindGroup, 0, nullptr);
@@ -195,7 +196,7 @@ void Gpu::InitializeMeshes() {
     Mesh mesh2(device, queue, meshBindGroupLayout, "krzeslo.obj", &mesh);
     mesh.AddChild(&mesh2);
     //Mesh mesh3(device, queue, meshBindGroupLayout, "obszar_prism.obj");
-    mesh.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,3.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
+    mesh.SetTransforms(glm::vec3(1.0f,2.0f,1.0f),glm::vec3(0.0f,-10.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
     //mesh3.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,6.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
     //meshes = {mesh, mesh2, mesh3};
     meshes = {mesh, mesh2};
