@@ -32,6 +32,7 @@ bool MainWindow::IsRunning(){
     return !glfwWindowShouldClose(window);
 } 
 void MainWindow::Terminate(){
+    delete this->camera;
     glfwDestroyWindow(window);
     glfwTerminate();
 }

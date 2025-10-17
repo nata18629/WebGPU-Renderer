@@ -197,6 +197,7 @@ void Gpu::InitializeMeshes() {
     mesh.AddChild(&mesh2);
     //Mesh mesh3(device, queue, meshBindGroupLayout, "obszar_prism.obj");
     mesh.SetTransforms(glm::vec3(1.0f,2.0f,1.0f),glm::vec3(0.0f,-10.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
+    mesh2.SetTransforms(glm::vec3(1.0f,1.0f,1.0f),glm::vec3(0.0f,10.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
     //mesh3.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,6.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
     //meshes = {mesh, mesh2, mesh3};
     meshes = {mesh, mesh2};

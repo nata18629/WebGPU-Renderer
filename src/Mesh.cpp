@@ -75,19 +75,17 @@ void Mesh::SetTransforms(glm::vec3 scale, glm::vec3 translate, glm::vec3 rotate)
 
 void Mesh::UpdateTransforms() {
     if(parent!=nullptr){
-    globalTransforms.Scale=parent->globalTransforms.Scale*localTransforms.Scale;
-    globalTransforms.Trans=parent->globalTransforms.Trans*localTransforms.Trans;
+        globalTransforms.Scale=parent->globalTransforms.Scale*localTransforms.Scale;
+        globalTransforms.Trans=parent->globalTransforms.Trans*localTransforms.Trans;
     }
     else{
-    globalTransforms.Scale=localTransforms.Scale;
-    globalTransforms.Trans=localTransforms.Trans;
+        globalTransforms.Scale=localTransforms.Scale;
+        globalTransforms.Trans=localTransforms.Trans;
     }
     globalTransforms.Rot = globalTransforms.Trans*globalTransforms.Scale;
-    std::cout<<children.empty()<<std::endl;
-    if(!children.empty()){
     for(auto child:children){
         child->UpdateTransforms();
-    }}
+    }
 }
 
 Mesh* Mesh::GetParent() {
