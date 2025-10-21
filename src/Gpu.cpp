@@ -10,6 +10,7 @@
 #include "ResourceManager.hpp"
 #include "Gpu.hpp"
 #include "MainWindow.hpp"
+#include "Scene.hpp"
 
 
 using namespace wgpu;
@@ -48,29 +49,25 @@ bool Gpu::Initialize() {
     
     InitializeSurface(adapter);
     queue = device.getQueue();
+    printf("Before init uniforms\n");
     InitializeUniforms();
+    printf("Before init sampler\n");
     InitializeSampler();
+    printf("Before init binding\n");
     InitializeBinding();
+    printf("Before init meshes\n");
     InitializeMeshes();
     UpdateViewMatrix();
-    InitializePipeline();
     SetCallbacks();
     adapter.release();
     return true;
 }
 void Gpu::Terminate(){
-    for (auto &mesh : meshes){
-        mesh.Terminate();
-    }
-    depthTextureView.release();
-    depthTexture.destroy();
-    depthTexture.release();
+    scene->Terminate();
+    delete scene;
     uniformBuffer.release();
     bindGroup.release();
     bindGroupLayout.release();
-    meshBindGroupLayout.release();
-    pipeline.release();
-    pipelineLayout.release();
     instance.release();
     surface.unconfigure();
     surface.release();
@@ -98,7 +95,7 @@ void Gpu::MainLoop(){
     renderPassDesc.colorAttachments = &renderPassColorAttachment;
     // depth stencil
     RenderPassDepthStencilAttachment depthStencilAttachment;
-    depthStencilAttachment.view = depthTextureView;
+    depthStencilAttachment.view = scene->depthTextureView;
     depthStencilAttachment.depthClearValue = 1.0f;
     depthStencilAttachment.depthLoadOp = LoadOp::Clear;
     depthStencilAttachment.depthStoreOp = StoreOp::Store;
@@ -116,11 +113,9 @@ void Gpu::MainLoop(){
     CommandEncoder encoder = device.createCommandEncoder(encoderDesc);
     // render pass
     RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
-    renderPass.setPipeline(pipeline);
-    for (auto &mesh : meshes){
-        //std::cout<<"RenderMeshes"<<std::endl;
+    for (auto &mesh : scene->meshes){
+        renderPass.setPipeline(mesh.pipeline);
         queue.writeBuffer(mesh.transformsBuffer, 0, &mesh.globalTransforms, sizeof(ObjectTransforms));
-        //std::vector<BindGroup> bindGroups = {bindGroup, mesh.bindGroup};
         renderPass.setBindGroup(0, bindGroup, 0, nullptr);
         renderPass.setBindGroup(1, mesh.bindGroup, 0, nullptr);
         renderPass.setVertexBuffer(0, mesh.vertexBuffer, 0, mesh.vertexData.size()*sizeof(VertexAttributes));
@@ -192,15 +187,8 @@ void Gpu::InitializeSurface(Adapter adapter){
     surface.configure(config);
 }
 void Gpu::InitializeMeshes() {
-    Mesh mesh(device, queue, meshBindGroupLayout, "asteroid.obj");
-    Mesh mesh2(device, queue, meshBindGroupLayout, "krzeslo.obj", &mesh);
-    mesh.AddChild(&mesh2);
-    //Mesh mesh3(device, queue, meshBindGroupLayout, "obszar_prism.obj");
-    mesh.SetTransforms(glm::vec3(1.0f,2.0f,1.0f),glm::vec3(0.0f,-10.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
-    mesh2.SetTransforms(glm::vec3(1.0f,1.0f,1.0f),glm::vec3(0.0f,10.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
-    //mesh3.SetTransforms(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,6.0f,1.0f),glm::vec3(1.0f,1.0f,1.0f));
-    //meshes = {mesh, mesh2, mesh3};
-    meshes = {mesh, mesh2};
+    scene = new Scene(queue, device, bindGroupLayout, surfaceFormat);
+    scene->LoadFromFile("krzeslo.obj");
 }
 void Gpu::InitializeUniforms() {
     BufferDescriptor bufferDesc;
@@ -258,141 +246,6 @@ void Gpu::InitializeBinding() {
     bindGroupDesc.entryCount = bindings.size();
     bindGroupDesc.entries = bindings.data();
     bindGroup = device.createBindGroup(bindGroupDesc);
-
-    std::vector<BindGroupLayoutEntry> bindingLayoutEntries(3, Default);
-    //BindGroupLayoutEntry textureBindingLayout(Default);
-    bindingLayoutEntries[0].binding = 0;
-    bindingLayoutEntries[0].visibility = ShaderStage::Fragment;
-    bindingLayoutEntries[0].texture.sampleType = TextureSampleType::Float;
-    bindingLayoutEntries[0].texture.viewDimension = TextureViewDimension::_2D;
-    bindingLayoutEntries[0].texture.multisampled = 0;
-    
-    bindingLayoutEntries[1].binding = 1;
-    bindingLayoutEntries[1].visibility = ShaderStage::Vertex;
-    bindingLayoutEntries[1].buffer.type = BufferBindingType::Uniform;
-    bindingLayoutEntries[1].buffer.minBindingSize = sizeof(ObjectTransforms);
-
-    bindingLayoutEntries[2].binding = 2;
-    bindingLayoutEntries[2].visibility = ShaderStage::Fragment;
-    bindingLayoutEntries[2].texture.sampleType = TextureSampleType::Float;
-    bindingLayoutEntries[2].texture.viewDimension = TextureViewDimension::_2D;
-    bindingLayoutEntries[2].texture.multisampled = 0;
-
-    // Create a bind group layout
-    bindGroupLayoutDesc.entryCount = bindingLayoutEntries.size();
-    bindGroupLayoutDesc.entries = bindingLayoutEntries.data();
-    meshBindGroupLayout = device.createBindGroupLayout(bindGroupLayoutDesc);
-    
-    bindGroupLayouts = {bindGroupLayout, meshBindGroupLayout};
-}
-void Gpu::InitializePipeline(){
-    // create shader module
-    ShaderModule shaderModule = ResourceManager::loadShaderModule("src/shaders.wgsl", device);
-    std::cout<<fs::current_path();
-    if (shaderModule == nullptr) {
-        std::cerr << "Could not load shader!" << std::endl;
-        exit(1);
-    }
-    // vertex buffer layout
-    VertexBufferLayout vertexBufferLayout;
-    std::vector<VertexAttribute> vertexAttrib(4);
-    
-    vertexAttrib[0].shaderLocation = 0;
-    vertexAttrib[0].offset = offsetof(VertexAttributes, position);
-    vertexAttrib[0].format = VertexFormat::Float32x3;
-    vertexAttrib[1].shaderLocation = 1;
-    vertexAttrib[1].offset = offsetof(VertexAttributes, normal);
-    vertexAttrib[1].format = VertexFormat::Float32x3;
-    vertexAttrib[2].shaderLocation = 2;
-    vertexAttrib[2].offset = offsetof(VertexAttributes, color);
-    vertexAttrib[2].format = VertexFormat::Float32x3;
-    vertexAttrib[3].shaderLocation = 3;
-    vertexAttrib[3].offset = offsetof(VertexAttributes, texCoords);
-    vertexAttrib[3].format = VertexFormat::Float32x2;
-
-    vertexBufferLayout.attributeCount = vertexAttrib.size();
-    vertexBufferLayout.attributes = vertexAttrib.data();
-    vertexBufferLayout.arrayStride = sizeof(VertexAttributes);
-    vertexBufferLayout.stepMode = VertexStepMode::Vertex;
-
-    // pipeline
-    RenderPipelineDescriptor pipelineDesc;
-    pipelineDesc.label = "Pipeline";
-    pipelineDesc.vertex.bufferCount = 1;
-    pipelineDesc.vertex.buffers = &vertexBufferLayout;
-    // vertex shader
-    pipelineDesc.vertex.module = shaderModule;
-    pipelineDesc.vertex.entryPoint = "vs_main";
-    pipelineDesc.vertex.constantCount = 0;
-    pipelineDesc.vertex.constants = nullptr;
-    pipelineDesc.primitive.topology = PrimitiveTopology::TriangleList;
-    pipelineDesc.primitive.stripIndexFormat = IndexFormat::Undefined;
-    pipelineDesc.primitive.frontFace = FrontFace::CCW;
-    pipelineDesc.primitive.cullMode = CullMode::None;
-    // fragment shader
-    FragmentState fragmentState;
-    fragmentState.module = shaderModule;
-    fragmentState.entryPoint = "fs_main";
-    fragmentState.constantCount = 0;
-    fragmentState.constants = nullptr;
-    // blending
-    BlendState blendState;
-    blendState.color.srcFactor = BlendFactor::SrcAlpha;
-    blendState.color.dstFactor = BlendFactor::OneMinusSrcAlpha;
-    blendState.color.operation = BlendOperation::Add;
-    blendState.alpha.srcFactor = BlendFactor::Zero;
-    blendState.alpha.dstFactor = BlendFactor::One;
-    blendState.alpha.operation = BlendOperation::Add;
-    ColorTargetState colorTarget;
-    colorTarget.format = surfaceFormat;
-    colorTarget.blend = &blendState;
-    colorTarget.writeMask = ColorWriteMask::All;
-    fragmentState.targetCount = 1;
-    fragmentState.targets = &colorTarget;
-    pipelineDesc.fragment = &fragmentState;
-    DepthStencilState depthStencilState = Default;
-    depthStencilState.depthCompare = CompareFunction::Less;
-    depthStencilState.depthWriteEnabled = true;
-    TextureFormat depthTextureFormat = TextureFormat::Depth24Plus;
-    depthStencilState.format = depthTextureFormat;
-    depthStencilState.stencilReadMask = 0;
-    depthStencilState.stencilWriteMask = 0;
-    pipelineDesc.depthStencil = &depthStencilState;
-    
-    // multisampling
-    pipelineDesc.multisample.count = 1;
-    pipelineDesc.multisample.mask = ~0u;
-    pipelineDesc.multisample.alphaToCoverageEnabled = false;
-
-    PipelineLayoutDescriptor layoutDesc{};
-    layoutDesc.bindGroupLayoutCount = bindGroupLayouts.size();
-    layoutDesc.bindGroupLayouts = (WGPUBindGroupLayout*)bindGroupLayouts.data();
-    pipelineLayout = device.createPipelineLayout(layoutDesc);
-    pipelineDesc.layout = pipelineLayout;
-
-    pipeline = device.createRenderPipeline(pipelineDesc);
-    shaderModule.release();
-
-    // Create the depth texture
-    TextureDescriptor depthTextureDesc;
-    depthTextureDesc.dimension = TextureDimension::_2D;
-    depthTextureDesc.format = depthTextureFormat;
-    depthTextureDesc.mipLevelCount = 1;
-    depthTextureDesc.sampleCount = 1;
-    depthTextureDesc.size = {640, 480, 1};
-    depthTextureDesc.usage = TextureUsage::RenderAttachment;
-    depthTextureDesc.viewFormatCount = 1;
-    depthTextureDesc.viewFormats = (WGPUTextureFormat*)&depthTextureFormat;
-    depthTexture = device.createTexture(depthTextureDesc);
-    TextureViewDescriptor depthTextureViewDesc;
-    depthTextureViewDesc.aspect = TextureAspect::DepthOnly;
-    depthTextureViewDesc.baseArrayLayer = 0;
-    depthTextureViewDesc.arrayLayerCount = 1;
-    depthTextureViewDesc.baseMipLevel = 0;
-    depthTextureViewDesc.mipLevelCount = 1;
-    depthTextureViewDesc.dimension = TextureViewDimension::_2D;
-    depthTextureViewDesc.format = depthTextureFormat;
-    depthTextureView = depthTexture.createView(depthTextureViewDesc);
 }
 void Gpu::SetCallbacks(){
     GLFWwindow* window = this->window->GetWindow();

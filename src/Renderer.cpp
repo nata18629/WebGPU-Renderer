@@ -12,5 +12,7 @@ void Renderer::Run() {
         gpu.MainLoop();
     }
     gpu.Terminate();
+    printf("Terminate window\n");
     window.Terminate();
+    printf("Done terminating\n");
 }

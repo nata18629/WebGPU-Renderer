@@ -8,6 +8,7 @@
 using namespace wgpu;
 
 class MainWindow;
+class Scene;
 
 class Gpu {
 public:
@@ -27,19 +28,12 @@ MainWindow* window;
 Surface surface;
 SurfaceConfiguration config;
 Queue queue;
-RenderPipeline pipeline;
 TextureFormat surfaceFormat = TextureFormat::Undefined;
-PipelineLayout pipelineLayout;
-std::vector<Mesh> meshes;
-TextureView depthTextureView;
-Texture depthTexture;
+Scene* scene;
 Sampler sampler;
 Buffer uniformBuffer;
 BindGroup bindGroup;
-
 BindGroupLayout bindGroupLayout;
-BindGroupLayout meshBindGroupLayout;
-std::vector<BindGroupLayout> bindGroupLayouts;
 Uniforms uniforms;
 
 RequiredLimits GetRequiredLimits(Adapter adapter) const;
@@ -48,7 +42,7 @@ void InitializeMeshes();
 void InitializeSampler();
 void InitializeUniforms();
 void InitializeBinding();
-void InitializePipeline();
+//void InitializePipeline();
 void SetCallbacks();
 std::pair<SurfaceTexture, TextureView> GetNextSurfaceViewData();
 };

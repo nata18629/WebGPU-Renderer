@@ -1,22 +1,30 @@
-#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <webgpu/webgpu.hpp>
 #include <filesystem>
 #include <iostream>
+#include "ResourceManager.hpp"
 #include "Mesh.hpp"
 
 namespace fs = std::filesystem;
 
 auto RESOURCE_DIR = fs::path{"assets/textures"};
-auto MODELS_DIR = fs::path{"assets/models"};
+uint8_t TEXTURE[4] = {200,200,200,255};
+uint8_t NORMAL_MAP[4] = {128,128,255,255};
 
-Texture LoadTexture(const fs::path& path, Device device, TextureView* pTextureView){
-    // create texture
+Texture LoadTexture(const std::filesystem::path& path, Device device, TextureView* pTextureView, void *data = nullptr){
+    // create texture   
     int width, height, channels;
-    unsigned char *data = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
-    if (data==nullptr) return nullptr;
+    if(data==nullptr){
+        data = stbi_load(path.string().c_str(), &width, &height, &channels, 4); 
+        if (data==nullptr) return nullptr;
+    }
+    else{
+        width=1;
+        height=1;
+    }
+    
     TextureDescriptor textureDesc;
     textureDesc.dimension = TextureDimension::_2D;
     textureDesc.format = TextureFormat::RGBA8Unorm; // by convention for bmp, png and jpg file. Be careful with other formats.
@@ -50,18 +58,11 @@ Texture LoadTexture(const fs::path& path, Device device, TextureView* pTextureVi
     textureViewDesc.dimension = TextureViewDimension::_2D;
     textureViewDesc.format = textureDesc.format;
     *pTextureView = texture.createView(textureViewDesc);
-
-    stbi_image_free(data);
+    
+    if(path!=""){
+        stbi_image_free(data);
+    }
     return texture;
-}
-
-Mesh::Mesh(Device device, Queue queue, BindGroupLayout bindGroupLayout, const std::filesystem::path& path, Mesh* parent) {
-    this->device = device;
-    this->queue = queue;
-    this->parent = parent;
-    InitializeTexture();
-    InitializeBuffers(path);
-    InitializeBinding(bindGroupLayout);
 }
 
 void Mesh::SetTransforms(glm::vec3 scale, glm::vec3 translate, glm::vec3 rotate) {
@@ -100,16 +101,50 @@ void Mesh::AddChild(Mesh* child) {
     children.push_back(child);
 }
 
-void Mesh::InitializeTexture() {
-    texView = nullptr;
-    normalTexView = nullptr;
-    texture = LoadTexture(RESOURCE_DIR/"asteroid.png", device, &texView);
-    normalTexture = LoadTexture(RESOURCE_DIR/"asteroid_normal.png", device, &normalTexView);
-    //TODO: change so that texture path won't be hardcoded
+void Mesh::SetParent(Mesh* parent) {
+    this->parent = parent;
 }
 
-void Mesh::InitializeBuffers(const std::filesystem::path& path) {
-    ResourceManager::loadGeometryObj(MODELS_DIR/path, vertexData);
+void Mesh::SetGpu(Queue queue, Device device, BindGroupLayout bindGroupLayout, TextureFormat surfaceFormat, TextureFormat depthTextureFormat)
+{
+    this->queue = queue;
+    this->device = device;
+    this->bindGroupLayout = bindGroupLayout;
+    this->surfaceFormat = surfaceFormat;
+    this->depthTextureFormat = depthTextureFormat;
+    printf("Before init buffers\n");
+    InitializeTexture();
+    InitializeNormalMap();
+    InitializeBuffers();
+    printf("Before init binding\n");
+    InitializeBinding();
+    InitializePipeline();
+}
+
+void Mesh::InitializeNormalMap(const std::filesystem::path& path)
+{
+    if(path==""){
+        normalTexture = LoadTexture(path, device, &normalTexView, NORMAL_MAP);
+    }
+    else{
+        normalTexture = LoadTexture(RESOURCE_DIR/path, device, &normalTexView);
+    }
+}
+
+
+void Mesh::InitializeTexture(const std::filesystem::path& path) {
+    if(path==""){
+        texture = LoadTexture(path, device, &texView, TEXTURE);
+    }
+    else{
+        texture = LoadTexture(RESOURCE_DIR/path, device, &texView);
+    }
+    
+    //normalTexture = LoadTexture(RESOURCE_DIR/"asteroid_normal.png", device, &normalTexView);
+    //TODO: load normal texture
+}
+
+void Mesh::InitializeBuffers() {
     vertexCount = static_cast<int>(vertexData.size());
 
     BufferDescriptor bufferDesc;
@@ -125,36 +160,157 @@ void Mesh::InitializeBuffers(const std::filesystem::path& path) {
     bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
     bufferDesc.mappedAtCreation = false;
     transformsBuffer = device.createBuffer(bufferDesc);
+    std::cout << globalTransforms.Trans[0][0];
     queue.writeBuffer(transformsBuffer, 0, &globalTransforms, bufferDesc.size);
 }
 
-void Mesh::InitializeBinding(BindGroupLayout bindGroupLayout) {
-    // Create a binding
-    std::vector<BindGroupEntry> bindings(3);
+void Mesh::InitializeBinding() {
+    std::vector<BindGroupLayoutEntry> bindingLayoutEntries(3, Default);
+    bindingLayoutEntries[0].binding = 0;
+    bindingLayoutEntries[0].visibility = ShaderStage::Fragment;
+    bindingLayoutEntries[0].texture.sampleType = TextureSampleType::Float;
+    bindingLayoutEntries[0].texture.viewDimension = TextureViewDimension::_2D;
+    bindingLayoutEntries[0].texture.multisampled = 0;
+    
+    bindingLayoutEntries[1].binding = 1;
+    bindingLayoutEntries[1].visibility = ShaderStage::Vertex;
+    bindingLayoutEntries[1].buffer.type = BufferBindingType::Uniform;
+    bindingLayoutEntries[1].buffer.minBindingSize = sizeof(ObjectTransforms);
 
+    bindingLayoutEntries[2].binding = 2;
+    bindingLayoutEntries[2].visibility = ShaderStage::Fragment;
+    bindingLayoutEntries[2].texture.sampleType = TextureSampleType::Float;
+    bindingLayoutEntries[2].texture.viewDimension = TextureViewDimension::_2D;
+    bindingLayoutEntries[2].texture.multisampled = 0;
+    
+    std::vector<BindGroupEntry> bindings(3);
     bindings[0].binding = 0;
     bindings[0].textureView = texView;
-
     bindings[1].binding = 1;
     bindings[1].buffer = transformsBuffer;
     bindings[1].offset = 0;
     bindings[1].size = sizeof(ObjectTransforms);
-
     bindings[2].binding = 2;
     bindings[2].textureView = normalTexView;
 
+    BindGroupLayoutDescriptor bindGroupLayoutDesc{};
+    bindGroupLayoutDesc.entryCount = bindingLayoutEntries.size();
+    bindGroupLayoutDesc.entries = bindingLayoutEntries.data();
+    meshBindGroupLayout = device.createBindGroupLayout(bindGroupLayoutDesc);
+
     BindGroupDescriptor bindGroupDesc;
-    bindGroupDesc.layout = bindGroupLayout;
+    bindGroupDesc.layout = meshBindGroupLayout;
     bindGroupDesc.entryCount = bindings.size();
     bindGroupDesc.entries = bindings.data();
     bindGroup = device.createBindGroup(bindGroupDesc);
+
+    bindGroupLayouts={bindGroupLayout, meshBindGroupLayout};
+}
+
+void Mesh::InitializePipeline()
+{
+    ShaderModule shaderModule = ResourceManager::loadShaderModule("src/shaders.wgsl", device);
+    if (shaderModule == nullptr) {
+        std::cerr << "Could not load shader!" << std::endl;
+        exit(1);
+    }
+    // vertex buffer layout
+    VertexBufferLayout vertexBufferLayout;
+    std::vector<VertexAttribute> vertexAttrib(4);
+    
+    vertexAttrib[0].shaderLocation = 0;
+    vertexAttrib[0].offset = offsetof(VertexAttributes, position);
+    vertexAttrib[0].format = VertexFormat::Float32x3;
+    vertexAttrib[1].shaderLocation = 1;
+    vertexAttrib[1].offset = offsetof(VertexAttributes, normal);
+    vertexAttrib[1].format = VertexFormat::Float32x3;
+    vertexAttrib[2].shaderLocation = 2;
+    vertexAttrib[2].offset = offsetof(VertexAttributes, color);
+    vertexAttrib[2].format = VertexFormat::Float32x3;
+    vertexAttrib[3].shaderLocation = 3;
+    vertexAttrib[3].offset = offsetof(VertexAttributes, texCoords);
+    vertexAttrib[3].format = VertexFormat::Float32x2;
+
+    vertexBufferLayout.attributeCount = vertexAttrib.size();
+    vertexBufferLayout.attributes = vertexAttrib.data();
+    vertexBufferLayout.arrayStride = sizeof(VertexAttributes);
+    vertexBufferLayout.stepMode = VertexStepMode::Vertex;
+
+    // pipeline
+    RenderPipelineDescriptor pipelineDesc;
+    pipelineDesc.label = "Pipeline";
+    pipelineDesc.vertex.bufferCount = 1;
+    pipelineDesc.vertex.buffers = &vertexBufferLayout;
+    // vertex shader
+    pipelineDesc.vertex.module = shaderModule;
+    pipelineDesc.vertex.entryPoint = "vs_main";
+    pipelineDesc.vertex.constantCount = 0;
+    pipelineDesc.vertex.constants = nullptr;
+    pipelineDesc.primitive.topology = PrimitiveTopology::TriangleList;
+    pipelineDesc.primitive.stripIndexFormat = IndexFormat::Undefined;
+    pipelineDesc.primitive.frontFace = FrontFace::CCW;
+    pipelineDesc.primitive.cullMode = CullMode::None;
+    // fragment shader
+    FragmentState fragmentState;
+    fragmentState.module = shaderModule;
+    fragmentState.entryPoint = "fs_main";
+    fragmentState.constantCount = 0;
+    fragmentState.constants = nullptr;
+    // blending
+    BlendState blendState;
+    blendState.color.srcFactor = BlendFactor::SrcAlpha;
+    blendState.color.dstFactor = BlendFactor::OneMinusSrcAlpha;
+    blendState.color.operation = BlendOperation::Add;
+    blendState.alpha.srcFactor = BlendFactor::Zero;
+    blendState.alpha.dstFactor = BlendFactor::One;
+    blendState.alpha.operation = BlendOperation::Add;
+    ColorTargetState colorTarget;
+    colorTarget.format = surfaceFormat;
+    colorTarget.blend = &blendState;
+    colorTarget.writeMask = ColorWriteMask::All;
+    fragmentState.targetCount = 1;
+    fragmentState.targets = &colorTarget;
+    pipelineDesc.fragment = &fragmentState;
+    DepthStencilState depthStencilState = Default;
+    depthStencilState.depthCompare = CompareFunction::Less;
+    depthStencilState.depthWriteEnabled = true;
+    
+    depthStencilState.format = depthTextureFormat;
+    depthStencilState.stencilReadMask = 0;
+    depthStencilState.stencilWriteMask = 0;
+    pipelineDesc.depthStencil = &depthStencilState;
+    
+    // multisampling
+    pipelineDesc.multisample.count = 1;
+    pipelineDesc.multisample.mask = ~0u;
+    pipelineDesc.multisample.alphaToCoverageEnabled = false;
+
+    PipelineLayoutDescriptor layoutDesc{};
+    layoutDesc.bindGroupLayoutCount = bindGroupLayouts.size();
+    layoutDesc.bindGroupLayouts = (WGPUBindGroupLayout*)bindGroupLayouts.data();
+    pipelineLayout = device.createPipelineLayout(layoutDesc);
+    pipelineDesc.layout = pipelineLayout;
+
+    pipeline = device.createRenderPipeline(pipelineDesc);
+    shaderModule.release();
+    
 }
 
 void Mesh::Terminate() {
     vertexBuffer.release();
     transformsBuffer.release();
+    meshBindGroupLayout.release();
+    pipeline.release();
+    pipelineLayout.release();
     bindGroup.release();
-    texture.destroy();
-    texture.release();
-    texView.release();
+    if(texture!=nullptr){
+        texture.destroy();
+        texture.release();
+        texView.release();
+    }    
+    if(normalTexture!=nullptr){
+        normalTexture.destroy();
+        normalTexture.release();
+        normalTexView.release();
+    }
 }
