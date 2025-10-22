@@ -7,9 +7,8 @@ auto MODELS_DIR = fs::path{"assets/models"};
 
 using namespace wgpu;
 
-Scene::Scene(Queue queue, Device device, BindGroupLayout bindGroupLayout, TextureFormat surfaceFormat)
+Scene::Scene(Device device, BindGroupLayout bindGroupLayout, TextureFormat surfaceFormat)
 {
-    this->queue = queue;
     this->device = device;
     this->bindGroupLayout = bindGroupLayout;
     this->surfaceFormat = surfaceFormat;
@@ -26,17 +25,15 @@ void Scene::LoadFromFile(const fs::path &path)
     InitializeDepthTexture();
     
     for (auto &mesh: meshes) {
-        mesh.SetGpu(queue, device, bindGroupLayout, surfaceFormat, depthTextureFormat);
+        mesh.SetGpu(device, bindGroupLayout, surfaceFormat, depthTextureFormat);
     }
 }
 
 void Scene::Terminate()
 {
     for (auto &mesh : meshes){
-        printf("Terminate next mesh\n");
         mesh.Terminate();
     }
-    printf("Terminate scene\n");
     depthTextureView.release();
     depthTexture.destroy();
     depthTexture.release();

@@ -105,18 +105,16 @@ void Mesh::SetParent(Mesh* parent) {
     this->parent = parent;
 }
 
-void Mesh::SetGpu(Queue queue, Device device, BindGroupLayout bindGroupLayout, TextureFormat surfaceFormat, TextureFormat depthTextureFormat)
+void Mesh::SetGpu(Device device, BindGroupLayout bindGroupLayout, TextureFormat surfaceFormat, TextureFormat depthTextureFormat)
 {
-    this->queue = queue;
     this->device = device;
+    this->queue = device.getQueue();
     this->bindGroupLayout = bindGroupLayout;
     this->surfaceFormat = surfaceFormat;
     this->depthTextureFormat = depthTextureFormat;
-    printf("Before init buffers\n");
     InitializeTexture();
     InitializeNormalMap();
     InitializeBuffers();
-    printf("Before init binding\n");
     InitializeBinding();
     InitializePipeline();
 }

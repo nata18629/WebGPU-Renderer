@@ -60,7 +60,6 @@ bool ResourceManager::loadGeometryObj(const fs::path& path, std::vector<Mesh>& m
     Mesh mesh;
     const auto& shape = shapes[0];
     mesh.vertexData.resize(shape.mesh.indices.size());
-    std::cout <<shape.mesh.indices.size();
     for (size_t i = 0; i < shape.mesh.indices.size(); ++i) {
         const tinyobj::index_t& idx = shape.mesh.indices[i];
 

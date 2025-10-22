@@ -38,7 +38,7 @@ public:
     std::vector<Mesh*> GetChildren();
     void AddChild(Mesh* child);
     void SetParent(Mesh* parent);
-    void SetGpu(Queue queue, Device device, BindGroupLayout bindGroupLayout, TextureFormat surfaceFormat, TextureFormat depthTextureFormat);
+    void SetGpu(Device device, BindGroupLayout bindGroupLayout, TextureFormat surfaceFormat, TextureFormat depthTextureFormat);
     void Terminate();
     // TODO: should contain texture path
 private:

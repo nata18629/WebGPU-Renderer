@@ -13,7 +13,7 @@ wgpu::TextureFormat depthTextureFormat=wgpu::TextureFormat::Undefined;
 wgpu::TextureView depthTextureView;
 wgpu::Texture depthTexture;
 
-Scene(wgpu::Queue queue, wgpu::Device device, wgpu::BindGroupLayout bindGroupLayout, wgpu::TextureFormat surfaceFormat);
+Scene(wgpu::Device device, wgpu::BindGroupLayout bindGroupLayout, wgpu::TextureFormat surfaceFormat);
 void LoadFromFile(const fs::path& path);
 void Terminate();
 

@@ -187,7 +187,7 @@ void Gpu::InitializeSurface(Adapter adapter){
     surface.configure(config);
 }
 void Gpu::InitializeMeshes() {
-    scene = new Scene(queue, device, bindGroupLayout, surfaceFormat);
+    scene = new Scene(device, bindGroupLayout, surfaceFormat);
     scene->LoadFromFile("krzeslo.obj");
 }
 void Gpu::InitializeUniforms() {
