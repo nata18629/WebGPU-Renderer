@@ -103,6 +103,7 @@ void Mesh::AddChild(Mesh* child) {
 
 void Mesh::SetParent(Mesh* parent) {
     this->parent = parent;
+    parent->AddChild(this);
 }
 
 void Mesh::SetGpu(Device device, BindGroupLayout bindGroupLayout, TextureFormat surfaceFormat, TextureFormat depthTextureFormat)
@@ -112,8 +113,8 @@ void Mesh::SetGpu(Device device, BindGroupLayout bindGroupLayout, TextureFormat 
     this->bindGroupLayout = bindGroupLayout;
     this->surfaceFormat = surfaceFormat;
     this->depthTextureFormat = depthTextureFormat;
-    InitializeTexture();
-    InitializeNormalMap();
+    InitializeTexture(texturePath);
+    InitializeNormalMap(normalMapPath);
     InitializeBuffers();
     InitializeBinding();
     InitializePipeline();

@@ -10,3 +10,5 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 d 1.000000
 illum 2
+map_Kd C:/Users/Natalia/Documents/webgpu/assets/textures/asteroid.png
+map_Bump C:/Users/Natalia/Documents/webgpu/assets/textures/asteroid_normal.png

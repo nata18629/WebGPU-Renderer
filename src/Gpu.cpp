@@ -49,13 +49,9 @@ bool Gpu::Initialize() {
     
     InitializeSurface(adapter);
     queue = device.getQueue();
-    printf("Before init uniforms\n");
     InitializeUniforms();
-    printf("Before init sampler\n");
     InitializeSampler();
-    printf("Before init binding\n");
     InitializeBinding();
-    printf("Before init meshes\n");
     InitializeMeshes();
     UpdateViewMatrix();
     SetCallbacks();
@@ -188,7 +184,14 @@ void Gpu::InitializeSurface(Adapter adapter){
 }
 void Gpu::InitializeMeshes() {
     scene = new Scene(device, bindGroupLayout, surfaceFormat);
+    scene->LoadFromFile("asteroid.obj");
+    scene->LoadFromFile("obszar_prism.obj");
     scene->LoadFromFile("krzeslo.obj");
+    Mesh& mesh = scene->meshes.at(1);
+    Mesh& mesh2 = scene->meshes.at(0);
+    mesh.SetParent(&(scene->meshes.at(0)));
+    mesh.SetTransforms({1,1,1},{10,3,0});
+    mesh2.SetTransforms({2.5,1.0,1.0});
 }
 void Gpu::InitializeUniforms() {
     BufferDescriptor bufferDesc;

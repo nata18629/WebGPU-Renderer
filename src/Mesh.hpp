@@ -27,13 +27,15 @@ public:
     RenderPipeline pipeline;
     PipelineLayout pipelineLayout;
     TextureFormat surfaceFormat=TextureFormat::Undefined;
+    std::filesystem::path texturePath = "";
+    std::filesystem::path normalMapPath = "";
 
     //Mesh();
     //Mesh(Device device, Queue queue, BindGroupLayout bindGroupLayout, const std::filesystem::path& path, Mesh* parent=nullptr);
     void SetTransforms(glm::vec3 scale=glm::vec3(1.0f,1.0f,1.0f), glm::vec3 translate=glm::vec3(1.0f,1.0f,1.0f), glm::vec3 rotate=glm::vec3(0.0f,0.0f,0.0f));
     void UpdateTransforms();
-    void InitializeNormalMap(const std::filesystem::path& path="");
-    void InitializeTexture(const std::filesystem::path& path="");
+    void InitializeNormalMap(const std::filesystem::path& path);
+    void InitializeTexture(const std::filesystem::path& path);
     Mesh* GetParent();
     std::vector<Mesh*> GetChildren();
     void AddChild(Mesh* child);

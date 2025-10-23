@@ -15,6 +15,7 @@
 
 using namespace wgpu;
 
+
 ShaderModule ResourceManager::loadShaderModule(const std::filesystem::path& path, Device device) {
     std::ifstream file(path);
     if (!file.is_open()) {
@@ -37,56 +38,67 @@ ShaderModule ResourceManager::loadShaderModule(const std::filesystem::path& path
 }
 
 bool ResourceManager::loadGeometryObj(const fs::path& path, std::vector<Mesh>& meshes){
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-
-    std::string warn;
-    std::string err;
-
-    bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path.string().c_str());
-
-    if (!warn.empty()) {
-        std::cout << warn << std::endl;
-    }
-
-    if (!err.empty()) {
-        std::cerr << err << std::endl;
-    }
-
-    if (!ret) {
+    tinyobj::ObjReaderConfig reader_config;
+    reader_config.mtl_search_path = fs::path{"assets/models"}.string().c_str();
+    tinyobj::ObjReader reader;
+    
+    if (!reader.ParseFromFile(path.string().c_str(), reader_config)) {
+        if (!reader.Error().empty()) {
+            std::cerr << "TinyObjReader: " << reader.Error();
+        }
         return false;
     }
-    Mesh mesh;
-    const auto& shape = shapes[0];
-    mesh.vertexData.resize(shape.mesh.indices.size());
-    for (size_t i = 0; i < shape.mesh.indices.size(); ++i) {
-        const tinyobj::index_t& idx = shape.mesh.indices[i];
-
-        mesh.vertexData[i].position = {
-            attrib.vertices[3 * idx.vertex_index + 0],
-            attrib.vertices[3 * idx.vertex_index + 1],
-            attrib.vertices[3 * idx.vertex_index + 2]
-        };
-        //printf("x:%f y:%f z:%f\n ", attrib.vertices[3 * idx.vertex_index + 0],attrib.vertices[3 * idx.vertex_index + 1],attrib.vertices[3 * idx.vertex_index + 2]);
-        mesh.vertexData[i].normal = {
-            attrib.normals[3 * idx.normal_index + 0],
-            attrib.normals[3 * idx.normal_index + 1],
-            attrib.normals[3 * idx.normal_index + 2]
-        };
-
-        mesh.vertexData[i].color = {
-            attrib.colors[3 * idx.vertex_index + 0],
-            attrib.colors[3 * idx.vertex_index + 1],
-            attrib.colors[3 * idx.vertex_index + 2]
-        };
-
-        mesh.vertexData[i].texCoords = {
-            attrib.texcoords[2 * idx.texcoord_index + 0],
-            1-attrib.texcoords[2 * idx.texcoord_index + 1]
-        };
+    if (!reader.Warning().empty()) {
+        std::cout << "TinyObjReader: " << reader.Warning();
     }
-    meshes.push_back(mesh);
+    auto& attrib = reader.GetAttrib();
+    auto& shapes = reader.GetShapes();
+    auto& materials = reader.GetMaterials();
+    Mesh mesh;
+    for (size_t s = 0; s < shapes.size(); s++) {
+        mesh.vertexData.resize(shapes[s].mesh.indices.size());
+        //std::cout<<"num: "<<shapes[s].mesh.indices.size()<<std::endl;
+        // Loop over faces(polygon)
+        size_t index_offset = 0;
+        for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+            size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+            
+            // Loop over vertices in the face.
+            for (size_t i = 0; i < fv; i++) {
+            // access to vertex
+                tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + i];
+                mesh.vertexData[i+index_offset].position = {attrib.vertices[3*size_t(idx.vertex_index)+0],
+                attrib.vertices[3*size_t(idx.vertex_index)+1],
+                attrib.vertices[3*size_t(idx.vertex_index)+2]};
+                
+                // Check if `normal_index` is zero or positive. negative = no normal data
+                if (idx.normal_index >= 0) {
+                    mesh.vertexData[i+index_offset].normal = {attrib.normals[3*size_t(idx.normal_index)+0],
+                    attrib.normals[3*size_t(idx.normal_index)+1],
+                    attrib.normals[3*size_t(idx.normal_index)+2]};
+                }
+
+                // Check if `texcoord_index` is zero or positive. negative = no texcoord data
+                if (idx.texcoord_index >= 0) {
+                    mesh.vertexData[i+index_offset].texCoords = {attrib.texcoords[2*size_t(idx.texcoord_index)+0],
+                    1-attrib.texcoords[2*size_t(idx.texcoord_index)+1]};
+                }
+
+                mesh.vertexData[i+index_offset].color = {attrib.colors[3*size_t(idx.vertex_index)+0],
+                attrib.colors[3*size_t(idx.vertex_index)+1],
+                attrib.colors[3*size_t(idx.vertex_index)+2]};
+            }
+            index_offset += fv;
+            // per-face material
+            //std::cout<<shapes[s].mesh.material_ids[f];
+        }
+        if(shapes[s].mesh.material_ids[0]>=0){
+        mesh.texturePath = (materials[shapes[s].mesh.material_ids[0]].diffuse_texname);
+        mesh.normalMapPath = (materials[shapes[s].mesh.material_ids[0]].bump_texname);
+        }
+        meshes.push_back(mesh);
+        
+    }    
     return true;
 }
 // lol does not work yet
