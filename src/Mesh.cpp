@@ -13,7 +13,7 @@ auto RESOURCE_DIR = fs::path{"assets/textures"};
 uint8_t TEXTURE[4] = {200,200,200,255};
 uint8_t NORMAL_MAP[4] = {128,128,255,255};
 
-Texture LoadTexture(const std::filesystem::path& path, Device device, TextureView* pTextureView, void *data = nullptr){
+Texture Mesh::LoadTexture(const std::filesystem::path& path, TextureView* pTextureView, void *data){
     // create texture   
     int width, height, channels;
     if(data==nullptr){
@@ -123,24 +123,21 @@ void Mesh::SetGpu(Device device, BindGroupLayout bindGroupLayout, TextureFormat 
 void Mesh::InitializeNormalMap(const std::filesystem::path& path)
 {
     if(path==""){
-        normalTexture = LoadTexture(path, device, &normalTexView, NORMAL_MAP);
+        normalTexture = LoadTexture(path, &normalTexView, NORMAL_MAP);
     }
     else{
-        normalTexture = LoadTexture(RESOURCE_DIR/path, device, &normalTexView);
+        normalTexture = LoadTexture(RESOURCE_DIR/path, &normalTexView);
     }
 }
 
 
 void Mesh::InitializeTexture(const std::filesystem::path& path) {
     if(path==""){
-        texture = LoadTexture(path, device, &texView, TEXTURE);
+        texture = LoadTexture(path, &texView, TEXTURE);
     }
     else{
-        texture = LoadTexture(RESOURCE_DIR/path, device, &texView);
-    }
-    
-    //normalTexture = LoadTexture(RESOURCE_DIR/"asteroid_normal.png", device, &normalTexView);
-    //TODO: load normal texture
+        texture = LoadTexture(RESOURCE_DIR/path, &texView);
+    }    
 }
 
 void Mesh::InitializeBuffers() {
@@ -159,8 +156,17 @@ void Mesh::InitializeBuffers() {
     bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
     bufferDesc.mappedAtCreation = false;
     transformsBuffer = device.createBuffer(bufferDesc);
-    std::cout << globalTransforms.Trans[0][0];
     queue.writeBuffer(transformsBuffer, 0, &globalTransforms, bufferDesc.size);
+
+    indexCount = static_cast<int>(indexData.size());
+    if(indexCount>0){
+        bufferDesc.label = "index data";
+        bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Index;
+        bufferDesc.size = indexData.size() * sizeof(uint32_t);
+        bufferDesc.mappedAtCreation = false;
+        indexBuffer = device.createBuffer(bufferDesc);
+        queue.writeBuffer(indexBuffer, 0, indexData.data(), bufferDesc.size);
+    }
 }
 
 void Mesh::InitializeBinding() {
@@ -240,6 +246,7 @@ void Mesh::InitializePipeline()
     pipelineDesc.label = "Pipeline";
     pipelineDesc.vertex.bufferCount = 1;
     pipelineDesc.vertex.buffers = &vertexBufferLayout;
+
     // vertex shader
     pipelineDesc.vertex.module = shaderModule;
     pipelineDesc.vertex.entryPoint = "vs_main";
@@ -297,6 +304,9 @@ void Mesh::InitializePipeline()
 
 void Mesh::Terminate() {
     vertexBuffer.release();
+    if(indexCount>0){
+        indexBuffer.release();
+    }
     transformsBuffer.release();
     meshBindGroupLayout.release();
     pipeline.release();

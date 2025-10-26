@@ -115,7 +115,13 @@ void Gpu::MainLoop(){
         renderPass.setBindGroup(0, bindGroup, 0, nullptr);
         renderPass.setBindGroup(1, mesh.bindGroup, 0, nullptr);
         renderPass.setVertexBuffer(0, mesh.vertexBuffer, 0, mesh.vertexData.size()*sizeof(VertexAttributes));
-        renderPass.draw(mesh.vertexCount, 1, 0, 0);
+        if(!mesh.indexData.empty()){
+            renderPass.setIndexBuffer(mesh.indexBuffer, IndexFormat::Uint32, 0, mesh.indexBuffer.getSize());
+            renderPass.drawIndexed(mesh.indexCount, 1, 0, 0, 0);
+        }
+        else{
+            renderPass.draw(mesh.vertexCount, 1, 0, 0);
+        }
     }
     renderPass.end();
     CommandBufferDescriptor cmdBufferDescriptor = {};
@@ -184,14 +190,14 @@ void Gpu::InitializeSurface(Adapter adapter){
 }
 void Gpu::InitializeMeshes() {
     scene = new Scene(device, bindGroupLayout, surfaceFormat);
-    scene->LoadFromFile("asteroid.obj");
+    //scene->LoadFromFile("asteroid.obj");
     scene->LoadFromFile("obszar_prism.obj");
-    scene->LoadFromFile("krzeslo.obj");
-    Mesh& mesh = scene->meshes.at(1);
-    Mesh& mesh2 = scene->meshes.at(0);
-    mesh.SetParent(&(scene->meshes.at(0)));
-    mesh.SetTransforms({1,1,1},{10,3,0});
-    mesh2.SetTransforms({2.5,1.0,1.0});
+    scene->LoadFromFile("sth.glb");
+    // Mesh& mesh = scene->meshes.at(1);
+    // Mesh& mesh2 = scene->meshes.at(0);
+    // mesh.SetParent(&(scene->meshes.at(0)));
+    // mesh.SetTransforms({1,1,1},{10,3,0});
+    // mesh2.SetTransforms({2.5,1.0,1.0});
 }
 void Gpu::InitializeUniforms() {
     BufferDescriptor bufferDesc;

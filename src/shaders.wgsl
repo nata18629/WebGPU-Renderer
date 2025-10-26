@@ -87,12 +87,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     var specular = 0.0;
     
     //let N = in.normal;
+
     let encodedN = textureSample(normalTexture, textureSampler, in.uv).rgb;
     let N = normalize(encodedN - 0.5);
     let R = reflect(-L, N);
     let V = normalize(in.viewDirection);
     let RoV = max(0.0, dot(R, V));
-    let hardness = 3.0;
+    let hardness = 1.5;
     specular = pow(RoV, hardness);
     let ambient = 0.05;
     color *= specular+diffuse+ambient;

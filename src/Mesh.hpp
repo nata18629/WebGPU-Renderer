@@ -19,11 +19,11 @@ public:
     BindGroup bindGroup;
     Texture texture=nullptr, normalTexture=nullptr;
     TextureView texView=nullptr, normalTexView=nullptr;
-    Buffer vertexBuffer;
-    uint32_t vertexCount;
+    Buffer vertexBuffer, indexBuffer, transformsBuffer;
+    uint32_t vertexCount, indexCount;
     std::vector<VertexAttributes> vertexData;
+    std::vector<uint32_t> indexData;
     ObjectTransforms localTransforms, globalTransforms;
-    Buffer transformsBuffer;
     RenderPipeline pipeline;
     PipelineLayout pipelineLayout;
     TextureFormat surfaceFormat=TextureFormat::Undefined;
@@ -36,14 +36,15 @@ public:
     void UpdateTransforms();
     void InitializeNormalMap(const std::filesystem::path& path);
     void InitializeTexture(const std::filesystem::path& path);
+    Texture LoadTexture(const std::filesystem::path& path, TextureView* pTextureView, void *data = nullptr);
     Mesh* GetParent();
     std::vector<Mesh*> GetChildren();
     void AddChild(Mesh* child);
     void SetParent(Mesh* parent);
     void SetGpu(Device device, BindGroupLayout bindGroupLayout, TextureFormat surfaceFormat, TextureFormat depthTextureFormat);
     void Terminate();
-    // TODO: should contain texture path
-private:
+
+    private:
     Queue queue;
     Device device;
     BindGroupLayout bindGroupLayout;

@@ -93,8 +93,8 @@ bool ResourceManager::loadGeometryObj(const fs::path& path, std::vector<Mesh>& m
             //std::cout<<shapes[s].mesh.material_ids[f];
         }
         if(shapes[s].mesh.material_ids[0]>=0){
-        mesh.texturePath = (materials[shapes[s].mesh.material_ids[0]].diffuse_texname);
-        mesh.normalMapPath = (materials[shapes[s].mesh.material_ids[0]].bump_texname);
+            mesh.texturePath = (materials[shapes[s].mesh.material_ids[0]].diffuse_texname);
+            mesh.normalMapPath = (materials[shapes[s].mesh.material_ids[0]].bump_texname);
         }
         meshes.push_back(mesh);
         
@@ -125,6 +125,8 @@ bool ResourceManager::loadGeometryGltf(const fs::path& path, std::vector<Mesh>& 
     for (auto mesh : model.meshes) {
         for (auto primitive : mesh.primitives) { // TODO: if a mesh has multiple primitives they should be children of a mesh
             Mesh sceneMesh;
+            std::cout<<"Next model.....\n";
+
             tinygltf::Accessor& accessor = model.accessors[primitive.attributes["POSITION"]];
             tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
             tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
@@ -132,11 +134,19 @@ bool ResourceManager::loadGeometryGltf(const fs::path& path, std::vector<Mesh>& 
             sceneMesh.vertexData.resize(accessor.count);
             for (size_t i = 0; i < accessor.count; i++) {
                 sceneMesh.vertexData[i].position = {positions[i*3+0],positions[i*3+1],positions[i*3+2]};
-            } // TODO: load indices
-            meshes.push_back(sceneMesh);
-            continue;
-            if (primitive.attributes["NORMAL"]>=0){
+            }
+
+            accessor = model.accessors[primitive.indices];
+            bufferView = model.bufferViews[accessor.bufferView];
+            buffer = model.buffers[bufferView.buffer];
+            unsigned short* indices = reinterpret_cast<unsigned short*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset + bufferView.byteStride]);
+            for (size_t i=0; i<accessor.count; i++){
+                sceneMesh.indexData.push_back(indices[i]);
+            }
+            auto idx = primitive.attributes.find("NORMAL");
+            if (idx != primitive.attributes.end()){
                 accessor = model.accessors[primitive.attributes["NORMAL"]];
+                std::cout<<"Count nor: "<<accessor.count<<std::endl;
                 bufferView = model.bufferViews[accessor.bufferView];
                 buffer = model.buffers[bufferView.buffer];
                 const float* positions = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
@@ -144,8 +154,10 @@ bool ResourceManager::loadGeometryGltf(const fs::path& path, std::vector<Mesh>& 
                     sceneMesh.vertexData[i].normal = {positions[i*3+0],positions[i*3+1],positions[i*3+2]};
                 }
             }
-            if (primitive.attributes["TEXCOORD_0"]>=0){ // it's probably done differently
+            idx = primitive.attributes.find("TEXCOORD_0");
+            if (idx != primitive.attributes.end()){
                 accessor = model.accessors[primitive.attributes["TEXCOORD_0"]];
+                std::cout<<"Count tex: "<<accessor.count<<std::endl;
                 bufferView = model.bufferViews[accessor.bufferView];
                 buffer = model.buffers[bufferView.buffer];
                 const float* positions = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
@@ -153,13 +165,22 @@ bool ResourceManager::loadGeometryGltf(const fs::path& path, std::vector<Mesh>& 
                     sceneMesh.vertexData[i].texCoords = {positions[i*3+0],positions[i*3+1]};
                 }
             }
-            if (primitive.attributes["COLOR_0"]>=0){
+            meshes.push_back(sceneMesh);
+            //continue;
+            idx = primitive.attributes.find("COLOR_0");
+            if (idx != primitive.attributes.end()){
                 accessor = model.accessors[primitive.attributes["COLOR_0"]];
+                std::cout<<"Count color: "<<accessor.count<<std::endl;
                 bufferView = model.bufferViews[accessor.bufferView];
                 buffer = model.buffers[bufferView.buffer];
+                size_t colorStride = bufferView.byteStride > 0 ? bufferView.byteStride : 4;
+                // std::cout<<accessor.componentType<<std::endl;
+                // std::cout<<accessor.type<<std::endl;
+                std::cout<<colorStride<<std::endl;
                 const float* positions = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
                 for (size_t i = 0; i < accessor.count; ++i) {
-                    sceneMesh.vertexData[i].color = {positions[i*3+0],positions[i*3+1]};
+                    sceneMesh.vertexData[i].color = {positions[i*3+0],positions[i*3+1],positions[i*3+2]};
+                    //std::cout<<positions[i*3+0]<<", "<<positions[i*3+1]<<", "<<positions[i*3+2]<<", "<<positions[i*3+3]<<std::endl;
                 }
             }
             if(primitive.material<0){ continue;}
@@ -168,8 +189,9 @@ bool ResourceManager::loadGeometryGltf(const fs::path& path, std::vector<Mesh>& 
             tinygltf::Texture texture = model.textures[material.pbrMetallicRoughness.baseColorTexture.index];
             if(texture.source<0){ continue;}
             tinygltf::Image image = model.images[texture.source];
-            sceneMesh.InitializeTexture(image.uri);
-            meshes.push_back(sceneMesh);
+            std::cout << image.uri<<std::endl;
+            //sceneMesh.InitializeTexture(image.uri);
+            //meshes.push_back(sceneMesh);
         }
     }
     //printf("Mesh num: %I64u", meshes.size());
