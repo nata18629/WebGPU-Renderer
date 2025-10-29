@@ -1,0 +1,2 @@
+WebGPU course
+glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);

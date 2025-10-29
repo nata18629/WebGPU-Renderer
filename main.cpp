@@ -44,22 +44,18 @@ bool App::Initialize() {
     WGPURequestAdapterOptions options = {};
     bool requestEnded = false;
     WGPUAdapter adapter = requestAdapterSync(instance, &options);
-    // WGPUAdapterProperties properties = {};
-    // properties.nextInChain = nullptr;
-    // wgpuAdapterGetProperties(adapter, &properties);
-    // device
     WGPUDeviceDescriptor devDesc = {};
     device = requestDeviceSync(adapter, &devDesc);
-    
+    glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
     if (!glfwInit()) {
     std::cerr << "Could not initialize GLFW!" << std::endl;
         return false;
     }
     window = glfwCreateWindow(640, 480, "Learn WebGPU", nullptr, nullptr);
     if (!window) {
-    std::cerr << "Could not open window!" << std::endl;
-    glfwTerminate();
-    return 1;
+        std::cerr << "Could not open window!" << std::endl;
+        glfwTerminate();
+        return 1;
     }
     // surface
     surface = glfwGetWGPUSurface(instance, window);
