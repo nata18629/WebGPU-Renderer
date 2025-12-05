@@ -16,6 +16,9 @@ MainWindow::MainWindow(Gpu* gpu){
     this->camera = new Camera;
 }
 void MainWindow::Initialize(){
+    #ifdef __linux__
+    glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+    #endif
     if (!glfwInit()) {
         std::cerr << "Could not initialize GLFW!" << std::endl;
         return;

@@ -204,6 +204,7 @@ void Mesh::InitializeBinding() {
     meshBindGroupLayout = device.createBindGroupLayout(bindGroupLayoutDesc);
 
     BindGroupDescriptor bindGroupDesc;
+    bindGroupDesc.label = "mesh bind group";
     bindGroupDesc.layout = meshBindGroupLayout;
     bindGroupDesc.entryCount = bindings.size();
     bindGroupDesc.entries = bindings.data();

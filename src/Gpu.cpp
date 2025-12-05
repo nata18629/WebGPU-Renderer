@@ -173,7 +173,7 @@ std::pair<SurfaceTexture, TextureView> Gpu::GetNextSurfaceViewData() {
 }
 void Gpu::InitializeSurface(Adapter adapter){
     surface = glfwGetWGPUSurface(instance, window->GetWindow());
-    config = {};
+    SurfaceConfiguration config = {};
     config.nextInChain = nullptr;
     config.width = 640;
     config.height = 480;
@@ -191,8 +191,8 @@ void Gpu::InitializeSurface(Adapter adapter){
 void Gpu::InitializeMeshes() {
     scene = new Scene(device, bindGroupLayout, surfaceFormat);
     //scene->LoadFromFile("asteroid.obj");
-    scene->LoadFromFile("obszar_prism.obj");
-    scene->LoadFromFile("sth.glb");
+    scene->LoadFromFile("krzeslo.obj");
+    //scene->LoadFromFile("sth.glb");
     // Mesh& mesh = scene->meshes.at(1);
     // Mesh& mesh2 = scene->meshes.at(0);
     // mesh.SetParent(&(scene->meshes.at(0)));
