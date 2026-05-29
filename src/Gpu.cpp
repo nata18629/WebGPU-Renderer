@@ -192,10 +192,8 @@ void Gpu::InitializeMeshes() {
     scene = new Scene(device, bindGroupLayout, surfaceFormat);
     scene->LoadFromFile("krzeslo.obj");
     scene->LoadFromFile("monkey.obj");
-    scene->LoadFromFile("alien.obj");
     Mesh& mesh = scene->meshes.at(0);
     Mesh& mesh2 = scene->meshes.at(1);
-    Mesh& mesh3 = scene->meshes.at(2);
     mesh2.SetParent(&(scene->meshes.at(0)));
     mesh.SetTransforms({1,1,1},{-1,-5,2});
     mesh2.SetTransforms({1.5,1.5,1.5},{1.0,2.0,2.0});
