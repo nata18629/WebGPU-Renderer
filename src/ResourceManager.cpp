@@ -95,6 +95,7 @@ bool ResourceManager::loadGeometryObj(const fs::path& path, std::vector<Mesh>& m
         if(shapes[s].mesh.material_ids[0]>=0){
             mesh.texturePath = (materials[shapes[s].mesh.material_ids[0]].diffuse_texname);
             mesh.normalMapPath = (materials[shapes[s].mesh.material_ids[0]].bump_texname);
+            std::cout << mesh.texturePath << std::endl;
         }
         meshes.push_back(mesh);
         

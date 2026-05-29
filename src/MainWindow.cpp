@@ -23,7 +23,7 @@ void MainWindow::Initialize(){
         std::cerr << "Could not initialize GLFW!" << std::endl;
         return;
     }
-    window = glfwCreateWindow(640, 480, "Learn WebGPU", nullptr, nullptr);
+    window = glfwCreateWindow(640, 480, "WebGPU Renderer", nullptr, nullptr);
     if (!window) {
         std::cerr << "Could not open window!" << std::endl;
         glfwTerminate();
