@@ -12,6 +12,7 @@ Scene::Scene(Device device, BindGroupLayout bindGroupLayout, TextureFormat surfa
     this->device = device;
     this->bindGroupLayout = bindGroupLayout;
     this->surfaceFormat = surfaceFormat;
+    InitializeDepthTexture();
 }
 
 void Scene::LoadFromFile(const fs::path &path)
@@ -22,7 +23,6 @@ void Scene::LoadFromFile(const fs::path &path)
     else if (path.extension() == ".gltf" || path.extension() == ".glb"){
         ResourceManager::loadGeometryGltf(MODELS_DIR/path, meshes);
     }
-    InitializeDepthTexture();
     
     for (auto &mesh: meshes) {
         mesh.SetGpu(device, bindGroupLayout, surfaceFormat, depthTextureFormat);
