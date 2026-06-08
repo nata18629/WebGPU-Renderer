@@ -23,9 +23,8 @@ auto onDeviceError = [](WGPUErrorType type, char const* message, void* /* pUserD
         std::cout << std::endl;
 };
 
-bool Gpu::Initialize() {
+bool Gpu::Initialize(std::vector<std::string> models) {
     // instance
-    std::cout <<"start init"<<std::endl;
     InstanceDescriptor desc = {};
     desc.nextInChain = nullptr;
     instance = createInstance(desc);
@@ -40,7 +39,8 @@ bool Gpu::Initialize() {
     DeviceDescriptor devDesc = {};
     RequiredLimits requiredLimits = GetRequiredLimits(adapter);
     devDesc.requiredLimits = &requiredLimits;
-    devDesc.deviceLostCallbackInfo.callback = [](const WGPUDevice* /* device */, WGPUDeviceLostReason reason, char const* message, void* /* pUserData */) {    std::cout << "Device lost: reason " << reason;
+    devDesc.deviceLostCallbackInfo.callback = [](const WGPUDevice* /* device */, WGPUDeviceLostReason reason, char const* message, void* /* pUserData */) {
+    std::cout << "Device lost: reason " << reason;
     if (message) std::cout << " (" << message << ")";
     std::cout << std::endl;
     };
@@ -52,7 +52,7 @@ bool Gpu::Initialize() {
     InitializeUniforms();
     InitializeSampler();
     InitializeBinding();
-    InitializeMeshes();
+    InitializeMeshes(models);
     UpdateViewMatrix();
     SetCallbacks();
     adapter.release();
@@ -188,15 +188,11 @@ void Gpu::InitializeSurface(Adapter adapter){
     config.alphaMode = WGPUCompositeAlphaMode_Auto;
     surface.configure(config);
 }
-void Gpu::InitializeMeshes() {
+void Gpu::InitializeMeshes(std::vector<std::string> models) {
     scene = new Scene(device, bindGroupLayout, surfaceFormat);
-    scene->LoadFromFile("krzeslo.obj");
-    scene->LoadFromFile("monkey.obj");
-    Mesh& mesh = scene->meshes.at(0);
-    Mesh& mesh2 = scene->meshes.at(1);
-    mesh2.SetParent(&(scene->meshes.at(0)));
-    mesh.SetTransforms({1,1,1},{-1,-5,2});
-    mesh2.SetTransforms({1.5,1.5,1.5},{1.0,2.0,2.0});
+    for (std::string model: models) {
+        scene->LoadFromFile(model);
+    }
 }
 void Gpu::InitializeUniforms() {
     BufferDescriptor bufferDesc;

@@ -1,7 +1,13 @@
 #include "Renderer.hpp"
+#include <vector>
+#include <string>
+#include <iostream>
 
-int main (int, char**) {
+using namespace std;
+
+int main (int argc, char** argv) {
     Renderer renderer;
-    renderer.Run();
+    vector<string> models(argv+1, argc+argv);
+    renderer.Run(models);
     return 0;
 }

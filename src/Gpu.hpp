@@ -4,6 +4,8 @@
 #include "Mesh.hpp"
 #include "Helpers.hpp"
 #include "Camera.hpp"
+#include <string>
+#include <vector>
 
 using namespace wgpu;
 
@@ -12,7 +14,7 @@ class Scene;
 
 class Gpu {
 public:
-bool Initialize();
+bool Initialize(std::vector<std::string> models);
 void Terminate();
 void MainLoop();
 void UpdateViewMatrix();
@@ -38,7 +40,7 @@ Uniforms uniforms;
 
 RequiredLimits GetRequiredLimits(Adapter adapter) const;
 void InitializeSurface(Adapter adapter);
-void InitializeMeshes();
+void InitializeMeshes(std::vector<std::string> models);
 void InitializeSampler();
 void InitializeUniforms();
 void InitializeBinding();
